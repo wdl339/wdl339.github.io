@@ -1,0 +1,34 @@
+<footer class="article-footer">
+    {{ partial "article/components/tags" . }}
+
+    {{ if and (.Site.Params.article.license.enabled) (not (eq .Params.license false)) }}
+    <section class="article-copyright">
+        {{ partial "helper/icon" "copyright" }}
+        <span>{{ default .Site.Params.article.license.default .Params.license | markdownify }}</span>
+    </section>
+    {{ end }}
+
+    {{- if ne .Lastmod .Date -}}
+    <section class="article-lastmod">
+        {{ partial "helper/icon" "clock" }}
+        <span>
+            {{ T "article.lastUpdatedOn" }} {{ .Lastmod.Format ( or .Site.Params.dateFormat.lastUpdated "Jan 02, 2006 15:04 MST" ) }}
+        </span>
+    </section>
+    {{- end -}}
+
+    <!-- busuanzi -->
+    {{ if .Site.Params.busuanzi.enabled -}}
+    <section class="powerby">
+        <span id="busuanzi_container_page_pv">
+            本文总访问量<span id="busuanzi_value_page_pv">(loading...)</span>次
+        </span>
+    </section>
+
+    <section class="powerby">
+        <span id="busuanzi_container_page_uv">
+            本文访客数<span id="busuanzi_value_page_uv">(loading...)</span>人次
+        </span>
+    </section>
+    {{- end -}}
+</footer>
