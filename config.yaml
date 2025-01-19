@@ -63,6 +63,9 @@ params:
             enabled: true
             default: Licensed under CC BY-NC-SA 4.0
 
+    busuanzi:
+        enabled: true
+
     comments:
         enabled: true
         provider: giscus
