@@ -2,7 +2,7 @@ baseurl: wdl.github.io
 languageCode: zh-cn
 theme: hugo-theme-stack
 paginate: 5
-title: wdl的博客
+title: 摸鱼的九 的博客
 
 # Theme i18n support
 # Available values: ar, bn, ca, de, el, en, es, fr, hu, id, it, ja, ko, nl, pt-br, th, uk, zh-cn, zh-hk, zh-tw
@@ -15,7 +15,7 @@ hasCJKLanguage: true
 languages:
     zh-cn:
         languageName: 中文
-        title: wdl的博客
+        title: 摸鱼的九 的博客
         weight: 1
         params:
             description: 你好！
@@ -56,7 +56,7 @@ params:
             src: img/avatar.jpg
 
     article:
-        math: false
+        math: true
         toc: true
         readingTime: true
         license:
