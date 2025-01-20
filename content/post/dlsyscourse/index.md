@@ -2,7 +2,7 @@
 author : "wdl"
 title : "《CMU 10-414 Deep Learning System》课程学习笔记（上篇）"
 date : "2024-09-10"
-description : "深度学习系统，入门金课"
+description : "深度学习系统全栈入门"
 tags : [
     "AI",
     "深度学习",
@@ -16,7 +16,7 @@ math: true
 
 ## 前言
 
-当下人工智能、大模型等概念大火，Pytorch 和 Tensorflow这类实用而强大的编程框架功不可没，训练和推理所需要的基础设施也同样重要。我本人是对AI挺感兴趣的，目前在读的又是系统软件方向，就对深度学习系统这方面也感兴趣起来。CMU的Deep Learning Systems这门课呢据说是覆盖了深度学习系统全栈的知识体系（除了分布式训练），因此我暑假期间开始在网络上寻找资料，自学这门课程。
+当下人工智能、大模型等概念大火，Pytorch 和 Tensorflow这类实用而强大的编程框架功不可没，训练和推理所需要的基础设施也同样重要。我本人是对AI挺感兴趣的，目前在读的又是系统软件方向，就对深度学习系统这方面也感兴趣起来。CMU的《Deep Learning Systems》这门课呢据说是覆盖了深度学习系统全栈的知识体系（除了分布式训练），因此我暑假期间开始在网络上寻找资料，自学这门课程。
 
 课程资料如下：
 
@@ -63,7 +63,7 @@ math: true
 
 ### Softmax 回归
 
-![image-20240821231821961](img/a1.png)
+![多分类](img/a1.png)
 
 假说模型$h:R^n→R^k$。输出的k维向量的第i个元素$h_i(x)$表示属于第i个类别的概率。
 
@@ -71,17 +71,17 @@ math: true
 
 一次输入多个数据可以使用矩阵：
 
-![image-20240821232438849](img/a2.png)
+![](img/a2.png)
 
 最直觉的损失函数：预测对则为1，否则为0。不可微分，无法优化。
 
 交叉熵损失函数：
 
-![image-20240821233123515](img/a3.png)
+![交叉熵损失函数](img/a3.png)
 
 最优化问题：
 
-![image-20240821233412628](img/a4.png)
+![最优化问题](img/a4.png)
 
 求解方法：梯度下降法（gradient desecent）：
 $$
@@ -89,23 +89,19 @@ $$
 $$
 其中α为学习率，$\nabla_{\theta} f(\theta_t)$的计算方法为：
 
-![image-20240821233602532](img/a5.png)
-
-（对谁求梯度，结果的维度就与谁相同）
+![（对谁求梯度，结果的维度就与谁相同）](img/a5.png)
 
 随机梯度下降 （Stochastic gradient descent）：每次使用数据集的一个子集对参数进行更新。
 
-![image-20240821234007004](img/a6.png)
+![](img/a6.png)
 
 具体对于softmax的优化问题，该如何计算呢：
 
-![image-20240821234251367](img/a7.png)
+![](img/a7.png)
 
 先推导了关于向量求梯度的情况，现在要计算关于矩阵求导而不是向量，正确的做法太过麻烦，一般都是采用比较hacky的做法，也就是：将所有的矩阵和向量当作标量，使用链式法则求解，并进行转置操作使得结果的size符合预期，最后检查数值上结果是否正确。
 
-![image-20240821234625971](img/a8.png)
-
-注解：$z - e_y$为k × 1列向量，x为n × 1列向量。Z为B × k矩阵，X为B × n矩阵。softmax不改变维度。
+![注：（z - e_y）为k × 1列向量，x为n × 1列向量。Z为B × k矩阵，X为B × n矩阵。softmax不改变维度](img/a8.png)
 
 
 
@@ -141,13 +137,11 @@ $$
 
 双层神经网络：
 
-![image-20240822001952185](img/a9.png)
+![h为B × k矩阵，X为B × n矩阵](img/a9.png)
 
-h为B × k矩阵，X为B × n矩阵。
+L层神经网络：
 
-L层神经网络（图中的m即是上面的B）：
-
-![image-20240822002510633](img/a10.png)
+![图中的m即是之前的B](img/a10.png)
 
 
 
@@ -155,23 +149,21 @@ L层神经网络（图中的m即是上面的B）：
 
 对双层神经网络求解梯度：
 
-![image-20240822002833061](img/a11.png)
+![h和S为B × k矩阵，X为B × n矩阵，W_1为n × d矩阵，W_2为d × k矩阵](img/a11.png)
 
-h和S为B × k矩阵，X为B × n矩阵，$W_1$为n × d矩阵，$W_2$为d × k矩阵。
-
-![image-20240822002907888](img/a12.png)
+![](img/a12.png)
 
 对L层神经网络求解梯度：
 
-![image-20240822003848486](img/a13.png)
+![](img/a13.png)
 
-![image-20240822004027788](img/a14.png)
+![](img/a14.png)
 
 其中$Z_i,G_i \in R^{m \times n_i}, W_i \in R^{n_i \times n_{i+1}}$。
 
-整合，前向与反向传播：
+综上，前向与反向传播：
 
-![image-20240822004208247](img/a15.png)
+![](img/a15.png)
 
 反向传播中需要用到前向传播的中间结果Z，可以进行存储，以空间换时间。
 
@@ -181,7 +173,7 @@ h和S为B × k矩阵，X为B × n矩阵，$W_1$为n × d矩阵，$W_2$为d × k�
 
 ## Lecture 4: Automatic Differentiation
 
-![image-20240819194225450](img/b1.png)
+![](img/b1.png)
 
 目的：计算梯度
 
@@ -191,9 +183,7 @@ h和S为B × k矩阵，X为B × n矩阵，$W_1$为n × d矩阵，$W_2$为d × k�
 
 方法1：Numerical differentiation
 
-![image-20240819195313713](img/b2.png)
-
-$e_i$是第i个方向的单位向量。第二个公式的由来：泰勒展开。
+![e_i是第i个方向的单位向量。第二个公式的由来：泰勒展开](img/b2.png)
 
 以上方法存在误差且效率低，常用于验证其它方法的具体实现是否出错，即验证如下等式是否成立：
 $$
@@ -217,33 +207,33 @@ $$
 
 
 
-### Automatic Differentiation
+### 自动微分
 
-![image-20240819200728391](img/b5.png)
+![](img/b5.png)
 
 是一个DAG（有向无环图）。
 
-![image-20240819204651253](img/b6.png)
+![](img/b6.png)
 
 对于$f:R^n→R^k$，前向传播需要n次前向计算才能得到关于每个输入的梯度，这就意味前向传播适合n比较小、k比较大的情况。但是在深度学习中，通常n比较大、k比较小。
 
-![image-20240819204955741](img/b7.png)
+![](img/b7.png)
 
 前向和后向differentiation的区别：前向是看有哪些指向这个node，后向是看这个node指向其他哪些node。
 
-![image-20240819214503975](img/b8.png)
+![](img/b8.png)
 
 
 
 ### 代码实现
 
-![image-20240820141039820](img/b9.png)
+![伪代码](img/b9.png)
 
 `node_to_grad`是一个字典，保存着每个节点的partial adjoint值。按照逆拓扑排序计算$\overline{v_{i}}$的值。
 
 示例：$v_4 = exp(v_1) \times (exp(v_1) + 1)$
 
-![image-20240820143048932](img/b10.png)
+![](img/b10.png)
 
 红色图是从$\overline{v_4}$开始画的，画到$\overline{v_1}$结束。其中，由于：
 
@@ -252,7 +242,7 @@ $$
 $$
 因此可以看到$\overline{v_4}$和$v_2$指向了$\overline{v_3}$。这样的好处是节省内存，依赖关系清晰，只需要输入$v_1$的值就能进行整个计算。
 
-![image-20240820144125957](img/b11.png)
+![](img/b11.png)
 
 现代普遍应用反向AD的原因：
 
@@ -261,7 +251,7 @@ $$
 
 由标量推广到张量：
 
-![image-20240820152457706](img/b12.png)
+![](img/b12.png)
 
 
 
@@ -355,11 +345,11 @@ class Op:
 
 ### 全连接网络
 
-![image-20240821142413164](img/c1.png)
+![](img/c1.png)
 
 其中$$Z_i \in  R^{n_i}, W_i \in R^{n_i \times n_{i+1}}, b_i \in R^{n_{i+1}} $$
 
-![image-20240821143311193](img/c2.png)
+![](img/c2.png)
 
 用一个全1的列向量（m×1），将$b_i^T$广播到与矩阵相匹配的形状。
 
@@ -367,11 +357,11 @@ class Op:
 
 训练全连接网络的一些关键问题：
 
-![image-20240821144343952](img/c3.png)
+![](img/c3.png)
 
 
 
-### Optimization
+### 优化方法
 
 常用的优化算法：
 
@@ -381,9 +371,7 @@ $$
 $$
 当f是二次函数（二次优化问题）：
 
-![image-20240821144950480](img/c4.png)
-
-（左图：收敛快，但是变化较大；右图反之）
+![（左图：收敛快，但是变化较大；右图反之）](img/c4.png)
 
 **牛顿法（Newton's Method）**
 $$
@@ -392,9 +380,12 @@ $$
 其中：
 $$
 \nabla_{\theta}^{2} f\left(\theta_{t}\right)=H=\left[\begin{array}{cccc}
-\frac{\partial^{2} f}{\partial x_{1}^{2}} & \frac{\partial^{2} f}{\partial x_{1} \partial x_{2}} & \cdots & \frac{\partial^{2} f}{\partial x_{1} \partial x_{n}} \\
-\frac{\partial^{\prime} f}{\partial x_{2} \partial x_{1}} & \frac{\partial^{2} f}{\partial x_{2}^{2}} & \cdots & \frac{\partial^{2} f}{\partial x_{2} \partial x_{n}} \\
-\vdots & \vdots & \ddots & \vdots \\
+\frac{\partial^{2} f}{\partial x_{1}^{2}} & \frac{\partial^{2} f}{\partial x_{1} \partial x_{2}} & \cdots & \frac{\partial^{2} f}{\partial x_{1} \partial x_{n}} 
+\\
+\frac{\partial^{\prime} f}{\partial x_{2} \partial x_{1}} & \frac{\partial^{2} f}{\partial x_{2}^{2}} & \cdots & \frac{\partial^{2} f}{\partial x_{2} \partial x_{n}} 
+\\
+\vdots & \vdots & \ddots & \vdots 
+\\
 \frac{\partial^{2} f}{\partial x_{n} \partial x_{1}} & \frac{\partial^{2} f}{\partial x_{n} \partial x_{2}} & \cdots & \frac{\partial^{2} f}{\partial x_{n}^{2}}
 \end{array}\right]
 $$
@@ -422,7 +413,7 @@ $$
 \theta_{t+1} = \theta_t - \frac{\alpha u_{t+1}}{1-\beta^{t+1}}
 $$
 
-![image-20240821160109946](img/c6.png)
+![](img/c6.png)
 
 **Nesterov momentum**
 
@@ -430,7 +421,7 @@ $$
 $$
 u_{t+1} = \beta u_t + (1- \beta)\nabla_{\theta} f(\theta_t - \alpha u_t)
 $$
-![image-20240821160343551](img/c7.png)
+![](img/c7.png)
 
 **Adam**
 
@@ -446,7 +437,7 @@ $$
 $$
 （这里的平方为逐元素运算）
 
-![image-20240821165007909](img/c8.png)
+![](img/c8.png)
 
 虽然这种方法是否好还有争议，但是实践中效果还不错。
 
@@ -456,7 +447,7 @@ $$
 $$
 \theta_{t+1} = \theta_t - \frac{\alpha}{|B|} \sum_{i \in B}^{} \nabla_{\theta} l(h_\theta(x^{(i)},y^i))
 $$
-![image-20240821165121332](img/c9.png)
+![](img/c9.png)
 
 看上去SGD的迭代次数比梯度下降要多得多，但是其每轮迭代的计算代价都要小的多。
 
@@ -464,13 +455,13 @@ $$
 
 
 
-### Initialization
+### 初始化
 
 初始化参数$W_i,b_i$对梯度的影响很大。如果W初始值为0，那么梯度也将为0，每层的输出都是0。那就随机初始化：$W_i \sim N(0, \sigma^2I)$
 
 对$\sigma$的选择也很重要：
 
-![image-20240821170432815](img/c10.png)
+![](img/c10.png)
 
 随着层数的增加，如果激活值范数变化的太剧烈，会导致梯度爆炸或者消失问题。这就是为什么选择$\sigma^2 = 2/n$。
 
@@ -486,13 +477,13 @@ $$
 
 ### 经典库
 
-![image-20240822104229684](img/d1.png)
+![](img/d1.png)
 
-![image-20240822104304899](img/d2.png)
+![](img/d2.png)
 
 这里v1~v4仅仅是占位符，用于构建计算图，在没有输入传入前并没有值。通过会话来获取某个输入的情况下输出的值。上述过程被称为声明式编程。即计算图在定义时并不会立即执行，而是等到会话（session）运行时才执行。
 
-![image-20240822104929892](img/d3.png)
+![](img/d3.png)
 
 PyTorch使用命令式编程，在构建计算图时就指定其值。
 
@@ -502,13 +493,13 @@ Tensorflow1.0的效率更高，适合推理和部署。PyTorch1.0则更适合开
 
 ### 高级模块化库组件
 
-![image-20240822112049173](img/d4.png)
+![](img/d4.png)
 
 
 
 PyTorch中的`nn.Module`，对应的就是模型中一个个子模块，其特点是以Tensor同时作为输入和输出。损失函数是一种特殊的模块，它的输入是Tensor，输出是Scalar。
 
-![image-20240822113814556](img/d5.png)
+![](img/d5.png)
 
 为了防止过拟合，有些模型还具有正则项，有两种实现方式：
 
@@ -519,11 +510,11 @@ PyTorch中的`nn.Module`，对应的就是模型中一个个子模块，其特�
 
 数据加载和预处理（数据增强）也是重要的模块。常见处理方式有随机洗牌和变换输入（randomly shuffle and  transform the input），能提高模型预测精度。
 
-![image-20240822113900270](img/d6.png)
+![](img/d6.png)
 
 各组件之间数据流图如下：
 
-![image-20240822114216289](img/d7.png)
+![](img/d7.png)
 
 
 
@@ -614,25 +605,27 @@ class Optimizer:
 
 ## Lecture 9: Normalization and Regularization
 
-### Normalization（标准化）
-**（作者注：把下面这段搬到博客的环境里后，公式的显示有点问题，暂时没找到解决办法。读者可以去对着官方PPT看，或者把公式放到markdown环境下看）**
+### 标准化（Normalization）
 
 前面提到，参数初始值的选择很重要。最后训练出的权重值很可能和初始值差不多。为了修复这一问题，引入layer normalization对激活层的输出进行标准化，即将输出减去期望后除以标准差：
 $$
-\hat{z}_{i+1}=\sigma_{i}\left(W_{i}^{T} z_{i}+b_{i}\right)
+\hat{z_{i+1}}=\sigma_{i}(W_{i}^{T} z_{i}+b_{i})
 $$
+
 $$
-z_{i+1}=\frac{\hat{z}_{i+1}-E\left(\hat{z}_{i+1}\right)}{\operatorname{Var}\left(\hat{z}_{i+1}\right)+\epsilon}
+z_{i+1}=\frac{\hat{z_{i+1}}-E\left(\hat{z_{i+1}}\right)}{\operatorname{Var}\left(\hat{z_{i+1}}\right)+\epsilon}
 $$
+
 虽然这种方法已经被广泛应用于例如transformer架构中，但是这样会导致模型难以收敛到一个很小的loss值。
 
 另外一种技巧是batch norm。layer norm是对每一个sample（z的每一行）做归一化，而batch norm对每一列归一化，使得每个batch的所有样本都会对该batch中某个样本的推理结果有影响。
+
 $$
-\left(z_{i+1}\right)_{j}=\frac{\left(\hat{z}_{i+1}\right)_{j}-\left(\hat{\mu}_{i+1}\right)_{j}}{\left(\left(\hat{\sigma}_{i+1}^{2}\right)_{j}+\epsilon\right)^{1 / 2}}
+(z_{i+1})\_{j}=\frac{(\hat{z_{i+1}})\_{j}-(\hat{\mu_{i+1}})\_{j}}{((\hat{\sigma_{i+1}}^{2})\_{j}+\epsilon)^{1 / 2}}
 $$
 
 
-### Regularization（正则化）
+### 正则化（Regularization）
 
 正则化用于对抗过拟合，所谓过拟合是指模型在训练集上性能非常好，但在测试集上泛化性能很差。正则化就是限制参数复杂度的过程，可以分为显式正则和隐式正则。
 
@@ -646,7 +639,7 @@ $$
 一种最常见的应用于参数的正则化方案是$l_2$正则化，或者叫weight decay（权重衰减）。一般认为，模型参数值的大小可以在一定程度上指示出模型的复杂度，因此可以在减小loss的同时让参数值尽量小，将优化问题可以表示为：
 
 $$
-\operatorname{minimize}_{W_{1: L}} \frac{1}{m} \sum_{i=1}^{m} \ell\left(h_{W_{1: L}}\left(x^{(i)}\right), y^{(i)}\right)+\frac{\lambda}{2} \sum_{i=1}^{L}\left\|W_{i}\right\|_{F}^{2}
+\operatorname{minimize}\_{W_{1: L}} \frac{1}{m} \sum_{i=1}^{m} \ell(h_{W_{1: L}}(x^{(i)}), y^{(i)})+\frac{\lambda}{2} \sum_{i=1}^{L}||W_{i}||\_{F}^{2}
 $$
 $$
 \text { Results in the gradient descent updates: }
@@ -658,13 +651,13 @@ $$
 =(1-\alpha \lambda) W_{i}-\alpha \nabla_{W_{i}} \frac{1}{m} \sum_{i=1}^{m}\ell(h(X^{(i)}), y^{(i)})
 $$
 
-其中，$\left\|W_{i}\right\|_{F}$是Frobenius范数，表示矩阵每个元素的平方和的平方根。
+其中，$\left||W_{i}\right||_{F}$是Frobenius范数，表示矩阵每个元素的平方和的平方根。
 
 引入$l_2$正则化后，每轮迭代都会将参数缩小至原来的$(1−αλ)$。很多地方不将$l_2$正则化作为损失函数的一部分，而是将其作为优化器的一部分，直接将参数进行缩小，这种方法被称为weight decay，二者是等价的。
 
 另外一种正则化方法是dropout，其思想是在训练过程中随机地将一些激活层的输出置为0，并对其他输出放大，以确保整层输出的数学期望不变，形式化表示为：
 
-![image-20240829003800371](img/d8.png)
+![](img/d8.png)
 
 在推理时，则不需要进行dropout。换句话说就是训练时随机删除一些神经元，在使用模型时将所有的神经元加入。
 
@@ -672,9 +665,9 @@ dropout能够提升模型在激活层部分缺失时进行推理的能力（鲁�
 
 
 
-###  Interaction of optimization, initialization, normalization, regularization
+###  它们之间的关联
 
-![image-20240829004622473](img/d9.png)
+![](img/d9.png)
 
 
 
@@ -682,7 +675,7 @@ dropout能够提升模型在激活层部分缺失时进行推理的能力（鲁�
 
 ## Lecture 10: Convolutional Networks
 
-### Convolutional operators in deep networks
+### 网络中的卷积算子
 
 之前我们通过flatten操作将图片视作一个向量进行计算，这对于小尺寸的图片是可行的，但对于大尺寸的图片，例如256×256的图片，将会导致输入异常庞大，网络也随之变大，也不利于提取图片的内在特征。
 
@@ -691,59 +684,62 @@ dropout能够提升模型在激活层部分缺失时进行推理的能力（鲁�
 - 层之间的激活以局部的方式发生，并且隐藏层的输出也被视为图像
 - 在所有的空间位置共享权重
 
-![image.png](img/e1.png)
+![](img/e1.png)
 
 卷积网络有以下两个优点：
 
 - 使用的参数量少。参数量由卷积网络的大小决定，而和输入的shape无关
 - 能够很好地捕获图片的内在不变性
 
-卷积的计算示意如下图所示，卷积核在原图上滑动，从而产生一张新的图片。![image.png](img/e2.png)
+卷积的计算示意如下图所示，卷积核在原图上滑动，从而产生一张新的图片。
+![](img/e2.png)
 
 在深度学习中，输入和隐藏层都很少是一个1D的矩阵，一般都是由多个通道组成的。例如，一张彩色图片由RGB三通道组成，而中间的隐藏层，通常会有比较大的通道数，如下图所示：
 
-![image.png](img/e3.png)
+![](img/e3.png)
 
-![image.png](img/e4.png)
+![](img/e4.png)
 
 多通道卷积包含每个input-output channel pair的卷积fliter，单个输出通道是所有输入通道的卷积之和（卷积输出的某个通道，都是由输入在同一个局部的所有通道共同决定的）。因此卷积过程可以形式化表示为：
 $$
 z[:,:, s]=\sum_{r=1}^{c_{i n}} x[:,:, r] * W[r, s,:,:]
 $$
-关于多通道卷积，另外一种更符合直觉的理解是将相同位置的各通道的组合看作是一个向量，如下图所示：![image.png](img/e5.png)
+关于多通道卷积，另外一种更符合直觉的理解是将相同位置的各通道的组合看作是一个向量，如下图所示：
+
+![](img/e5.png)
 
 
 
-### Elements of practical convolutions
+### 实际的卷积
 
 在实际的卷积操作中，通常还会应用一些别的技术。
 
 **Padding**：原始的卷积操作，会将输出的长宽变小k−1个长度，通过在周围填充(k−1)/2个0元可以保证输出的shape与输入一致。为了避免两侧填充不一致这个别扭的情况，我们一般选取卷积核大小为奇数。
 
-![image-20240901233742038](img/e6.png)
+![](img/e6.png)
 
 **Strided Convolutions / Pooling** ：经过padding之后的卷积操作，不改变图片的shape，但在实际应用中，通常会对图片进行下采样。用两种解决方案：
 
 1. 使用最大/平均池化（取最大值/平均值）来聚合信息，例如，使用一个2×2的核进行池化操作，每次移动的步长为2，就可以将整张图片长宽各放缩至原来一半
 2. 卷积操作时，卷积核移动的步长大于1
 
-![image-20240901234008116](img/e7.png)
+![](img/e7.png)
 
-**Grouped Convolutions** ：当输入和输出的通道数很大时，卷积核的参数量仍可能非常非常大。一种解决方案是使用分组卷积，即将输入通道分为多个组，每个组独立进行卷积操作，如下图所示：![image.png](img/e8.png)
+**Grouped Convolutions** ：当输入和输出的通道数很大时，卷积核的参数量仍可能非常非常大。一种解决方案是使用分组卷积，即将输入通道分为多个组，每个组独立进行卷积操作，如下图所示：![](img/e8.png)
 
 **Dilations** ：传统卷积的感受野和卷积核一样大，扩张卷积的思路是在卷积区域中插入间隔，能够扩大卷积核的感受野，如下图所示：
 
-![image.png](img/e9.png)
+![](img/e9.png)
 
 
 
-### Differentiating convolutions
+### 对卷积的微分
 
 正如前文所提到的，我们可以通过一系列矩阵向量乘法和求和运算来实现卷积操作，但这么做效率太低了，我们的计算图上有很多中间节点，这些中间变量将消耗大量的内存空间。因此，我们不应该使用微分库中的算子来计算卷积，而是将其作为一个算子来实现，并手动计算其微分。
 
 首先定义卷积操作：
 
-![image-20240901235959556](img/e10.png)
+![](img/e10.png)
 
 首先考虑最简单的矩阵和向量相乘的情况，即：Z=Wx
 
@@ -751,7 +747,7 @@ $$
 
 对于卷积来说，它的“转置” $W^T$是什么呢？
 
-![image-20240902001305089](img/e11.png)
+![](img/e11.png)
 
 然后可以写出：
 $$
@@ -769,7 +765,7 @@ $$
 $$
 z对W的导数同理：
 
-![image-20240902002117659](img/e12.png)
+![](img/e12.png)
 
 这里构造出的$\hat{X}$矩阵是一个密集矩阵（0很少），被称为“im2col”矩阵（image to column）。矩阵里相同元素出现了很多次，实际上可以节约一些存储空间，不要让计算图变得很大。
 
@@ -779,7 +775,7 @@ z对W的导数同理：
 
 ## Lecture 11: Hardware Acceleration for Linear Algebra
 
-### General acceleration techniques
+### 通用的加速技术
 
 现代机器学习框架可以视为两层：上层是计算图，用于前向推理、自动微分和反向传播；下层是张量线性代数库，其负责底层的张量计算。在needle中，我们目前使用numpy作为线性代数库。
 
@@ -832,9 +828,9 @@ void vecadd(float* A, float* B, float* C){
 
 
 
-### Case study: matrix multiplication
+### 样例学习：矩阵乘法
 
-本节我们将讨论如何优化矩阵乘法。
+本节讨论如何优化矩阵乘法。
 
 **Vanilla matrix multiplication 朴素矩阵乘法：** 任务：计算C = dot(A, B.T)。最朴素的想法是使用三重循环完成，即如下代码：
 
@@ -853,7 +849,7 @@ for(int i=0; i<n; i++){
 
 通过优化数据的读取可以显著提升计算速度：
 
-![image-20240903151301019](img/f1.png)
+![](img/f1.png)
 
 考虑到这一点，我们可以将中间变量保存到寄存器中，即：
 
@@ -895,7 +891,7 @@ for (int i = 0; i < n/v1; ++i) {
 }
 ```
 
-![image-20240903151904744](img/f2.png)
+![](img/f2.png)
 
 A的数据加载开销是 $n^3/v2$，B的数据加载开销是 $n^3/v1$，A的寄存器开销是v1×v3，B的寄存器开销是v2×v3，C的寄存器开销是v1×v2。注意到v3不影响数据加载的开销，因此可以取v3为1，然后在满足寄存器总数约束的情况下，最大化v1和v2。
 
@@ -949,12 +945,13 @@ for (int i = 0; i < n/b1; ++i) {
 
 **possible reuse pattern in convolution：**
 
-![image-20240903154343109](img/f3.png)
+![](img/f3.png)
 
 
 ## 参考
 
 1. [《CMU 10-414 deep learning system》学习笔记 | 周鑫的个人博客 (zhouxin.space)](https://www.zhouxin.space/notes/notes-on-cmu-10-414-deep-learning-system/#lecture-3-manual-neural-networks)
+2. [深度学习系统作业 - 知乎 (zhihu.com)](https://www.zhihu.com/column/c_1582462878204063744)
 
 
 
