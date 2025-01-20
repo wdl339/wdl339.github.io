@@ -225,6 +225,16 @@ markup:
         renderer:
             ## Set to true if you have HTML content inside Markdown
             unsafe: true
+        extensions:
+            passthrough:
+                delimiters:
+                    block:
+                    - - $$
+                      - $$
+                    inline:
+                    - - $
+                      - $
+                enabled: true
     tableOfContents:
         endLevel: 4
         ordered: true
