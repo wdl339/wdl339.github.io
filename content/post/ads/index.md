@@ -2,9 +2,10 @@
 author : "wdl"
 title : "SJTU软件工程《高级数据结构》复习笔记"
 date : "2024-06-15"
-description : "算法的基础 不得不品的金课"
+description : "算法的基础 不得不品的“金课”"
 tags : [
     "数据结构",
+    "算法",
     "期末"
 ]
 categories : [

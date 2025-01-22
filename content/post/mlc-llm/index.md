@@ -8,7 +8,7 @@ tags : [
     "LLM"
 ]
 categories : [
-    "SelfStudy"
+    "Tech"
 ]
 math: true
 ---
