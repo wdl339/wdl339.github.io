@@ -5,8 +5,8 @@ date : "2024-09-10"
 description : "深度学习系统全栈入门"
 tags : [
     "AI",
-    "深度学习",
-    "system"
+    "system",
+    "自学课程"
 ]
 categories : [
     "SelfStudy"
