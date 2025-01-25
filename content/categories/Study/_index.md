@@ -1,6 +1,6 @@
 ---
 title: "课业学习"
-description: "存放关于课内学习的内容，例如复习资料"
+description: "学业生涯中积累下的课程笔记、复习资料"
 slug: "Study"
 image: "lieche.jpg"
 style:

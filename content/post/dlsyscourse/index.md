@@ -16,21 +16,20 @@ math: true
 
 ## 前言
 
-当下人工智能、大模型等概念大火，Pytorch 和 Tensorflow这类实用而强大的编程框架功不可没，训练和推理所需要的基础设施也同样重要。我本人是对AI挺感兴趣的，目前在读的又是系统软件方向，就对深度学习系统这方面也感兴趣起来。CMU的《Deep Learning Systems》这门课呢据说是覆盖了深度学习系统全栈的知识体系（除了分布式训练），因此我暑假期间开始在网络上寻找资料，自学这门课程。
+当下人工智能、大模型等概念大火，Pytorch 和 Tensorflow这类实用而强大的编程框架功不可没，训练和推理所需要的基础设施也同样重要。我本人对AI挺感兴趣的，目前又在学习系统软件，就对深度学习系统这方面也感兴趣起来。CMU的《Deep Learning Systems》这门课覆盖了深度学习系统全栈的知识体系（除了分布式训练），因此我开始在网络上寻找资料，自学这门课程。
 
 课程资料如下：
 
 - 课程官网：[Lectures (dlsyscourse.org)](https://dlsyscourse.org/lectures/)
 - 课程视频：https://www.bilibili.com/video/BV1Rg4y137jH/
 - 课程作业与部分讲座代码：[Deep Learning Systems: Algorithms and Implementation (github.com)](https://github.com/dlsyscourse)
-- 作业可参考解答：[《CMU 10-414 deep learning system》学习笔记 | 周鑫的个人博客 (zhouxin.space)](https://www.zhouxin.space/notes/notes-on-cmu-10-414-deep-learning-system/) ， [深度学习系统作业 - 知乎 (zhihu.com)](https://www.zhihu.com/column/c_1582462878204063744)
+- 作业可参考解答：[CMU 10-414 Assignments 实验笔记](https://www.zhouxin.space/notes/notes-on-cmu-10-414-assignments/) ， [深度学习系统作业 - 知乎 (zhihu.com)](https://www.zhihu.com/column/c_1582462878204063744)
 
-既然是学习，记笔记是很重要的，于是就有了这篇笔记。坦诚地说，我学习的时候有很多不太理解的地方都是靠看[《CMU 10-414 deep learning system》学习笔记 | 周鑫的个人博客 (zhouxin.space)](https://www.zhouxin.space/notes/notes-on-cmu-10-414-deep-learning-system/#lecture-3-manual-neural-networks) 理解的，那篇博客写的很好。如果你仔细看，会发现我的这篇笔记有很多地方和那篇博客是比较像的，一来是因为记笔记是边听边记的，有些地方来不及记，就直接翻出那篇博客copy-and-paste，然后再做改动了；二来那篇博客一些内容也是翻译PPT得到的，翻译得好就没必要改了。如果你觉得我笔记写得过于啰嗦，或者没看懂，那可以去看看那篇博客。
+坦诚地说，我学习的时候有很多不太理解的地方都是靠看[《CMU 10-414 deep learning system》学习笔记](https://www.zhouxin.space/notes/notes-on-cmu-10-414-deep-learning-system/#lecture-3-manual-neural-networks) 理解的，那篇博客写的很好。如果你仔细看，会发现这篇笔记有些地方和那篇博客是相像的，一来是因为是边听边记的，有些地方来不及记，就直接翻出那篇博客copy-and-paste，然后再做改动；二来那篇博客一些内容也是翻译PPT得到的，翻译得好就没必要改了。大概在学完整个课程之后我会再做修改和补充，降低重复度。如果你觉得我笔记写得过于啰嗦，或者没看懂，那可以去看看那篇博客。
 
-目前学到大概一半的位置，一段时间内可能没空学下半段了，就先搬上来一半，供君参考吧。
+做上半部分的笔记是在2024年暑期，听的是2023年版的课程。现在已经有了2024年版的课程，看起来课程表有了一些变化，主要体现在下半部分，到时候把2023年版学完之后也会在补充2024年版新增的内容。
 
-
-## Lecture 1: Introduction and Logistics
+## Introduction and Logistics
 
 深度学习系统的要素：
 
@@ -49,7 +48,7 @@ math: true
 
 
 
-## Lecture 2: ML Refresher / Softmax Regression
+## ML Refresher / Softmax Regression
 
 ### 机器学习基础
 
@@ -107,7 +106,7 @@ $$
 
 
 
-## Lecture 3:  “Manual” Neural Networks
+## "Manual" Neural Networks
 
 ### 从线性模型到非线性模型
 
@@ -171,7 +170,7 @@ L层神经网络：
 
 
 
-## Lecture 4: Automatic Differentiation
+## Automatic Differentiation
 
 ![](img/b1.png)
 
@@ -254,94 +253,7 @@ $$
 ![](img/b12.png)
 
 
-
-
-
-## Lecture 5: Automatic Differentiation Implementation
-
-本节主要对needle作业框架进行大致的讲解。
-
-如果不是在colab环境下做，可能出现无法`import needle`的情况，可以做如下改动，把
-
-```
-%set_env PYTHONPATH /content/needle/python:/env/python
-import sys
-sys.path.append("/content/needle/python")
-```
-
-改为：
-
-```
-%set_env PYTHONPATH ./python:/env/python
-import sys
-sys.path.append("./python")
-```
-
-`autograd.py`实现自动微分相关的代码。其中最重要的两个类：`Value`类代表计算图上的节点，`Op`类代表各种算子
-
-```python
-class Value:
-    """A value in the computational graph."""
-
-    # trace of computational graph
-    op: Optional[Op]
-    inputs: List["Value"]
-    # The following fields are cached fields for
-    # dynamic computation
-    cached_data: NDArray
-    requires_grad: bool
-```
-
-```python
-class Op:
-    """Operator definition."""
-
-    def compute(self, *args: Tuple[NDArray]):
-        """Calculate forward pass of operator.
-
-        Parameters
-        ----------
-        input: np.ndarray
-            A list of input arrays to the function
-
-        Returns
-        -------
-        output: nd.array
-            Array output of the operation
-
-        """
-        raise NotImplementedError()
-
-    def gradient(
-        self, out_grad: "Value", node: "Value"
-    ) -> Union["Value", Tuple["Value"]]:
-        """Compute partial adjoint for each input value for a given output adjoint.
-
-        Parameters
-        ----------
-        out_grad: Value
-            The adjoint wrt to the output value.
-
-        node: Value
-            The value node of forward evaluation.
-
-        Returns
-        -------
-        input_grads: Value or Tuple[Value]
-            A list containing partial gradient adjoints to be propagated to
-            each of the input node.
-        """
-        raise NotImplementedError()
-
-```
-
-其他的内容参见代码即可。
-
-
-
-
-
-## Lecture 6: Fully connected networks, optimization,  initialization
+## Fully connected networks, optimization,  initialization
 
 ### 全连接网络
 
@@ -473,7 +385,7 @@ $$
 
 
 
-## Lecture 7: Neural Network Library Abstractions
+## Neural Network Library Abstractions
 
 ### 经典库
 
@@ -517,93 +429,7 @@ PyTorch中的`nn.Module`，对应的就是模型中一个个子模块，其特�
 ![](img/d7.png)
 
 
-
-
-
-## Lecture 8: Neural Network Library Implementation
-
-### 修改tensor的data域
-
-在实现SGD时，由于存在多个batch，可能会在一个循环里对待学习参数进行更新，即：
-
-```python
-for _ in range(iterations):
-	w -= lr * grad
-```
-
-如果直接使用Tensor之间的算子进行参数更新，会导致每次更新都会在计算图上增加一个新的需要求梯度的节点w，这个节点具有Op和inputs，严重拖累反向传播速度。
-
-为了避免这种情况，needle库提供了`Tensor.data()`方法，用于创建一个与`Tensor`共享同一个底层data的节点，但其不存在Op和inputs，也不用对其进行求导，能在不干扰计算图反向传播的前提下对参数进行正常的更新，即：
-
-```python
-w.data -= lr * grad.data
-```
-
-
-
-### 数值稳定性
-
-每个数值在内存中的存储空间有限，保存的数值的范围和精度都有限，计算过程中难免出现溢出或者精度丢失的情况。
-
-例如在softmax公式中，由于指数运算的存在，数值很有可能上溢，一个修正方式是在进行softmax运算前，每个元素都减去输入的最大值，以防止上溢。即：
-$$
-z_i = \frac{exp(x_i)}{\sum_k exp(x_k)} = \frac{exp(x_i-c)}{\sum_k exp(x_k-c)}
-$$
-其中 $c = max(x)$ 
-
-
-
-### 重要的类实现
-
-`Parameter`类用于表示可学习的参数，其是`Tensor`的子类。相比`Tensor`类，这个类不必再引入新的行为或者接口。
-
-`Module`类用于表示神经网络中一个个子模块。
-
-```python
-def _get_params(value):
-    if isinstance(value, Parameter):
-        return [value]
-    if isinstance(value, dict):
-        params = []
-        for k, v in value.items():
-            params += _get_params(v)
-        return params
-    if isinstance(value, Module):
-        return value.parameters()
-    return []
-
-class Module:
-	# 获取模块中所有的可学习的参数
-    def parameters(self):
-        return _get_params(self.__dict__)
-
-	# 进行前向传播
-    def __call__(self, *args, **kwargs):
-        return self.forward(*args, **kwargs)
-```
-
-`Optimizer`类用于优化模型中可学习参数。
-
-```python
-class Optimizer:
-    def __init__(self, params):
-        self.params = params
-
-    def reset_grad(self):
-        for p in self.params:
-            p.grad = None
-
-    def step(self):
-        raise NotImplemented()
-```
-
-此外还实现了`TensorTuple`类，能返回多个`Value`。
-
-
-
-
-
-## Lecture 9: Normalization and Regularization
+## Normalization and Regularization
 
 ### 标准化（Normalization）
 
@@ -673,7 +499,7 @@ dropout能够提升模型在激活层部分缺失时进行推理的能力（鲁�
 
 
 
-## Lecture 10: Convolutional Networks
+## Convolutional Networks
 
 ### 网络中的卷积算子
 
@@ -750,15 +576,9 @@ $$
 ![](img/e11.png)
 
 然后可以写出：
-$$
-\hat{W}^{T}=\left[\begin{array}{ccccc}
-w_{2} & w_{1} & 0 & 0 & 0 \\
-w_{3} & w_{2} & w_{1} & 0 & 0 \\
-0 & w_{3} & w_{2} & w_{1} & 0 \\
-0 & 0 & w_{3} & w_{2} & w_{1} \\
-0 & 0 & 0 & w_{3} & w_{2}
-\end{array}\right]
-$$
+
+![](img/image-20250124125929040.png)
+
 不难发现，这相当于卷积核变成了原始卷积核（即$ \left[w_{3}, w_{2}, w_{1}\right] $）翻转（flip）后的卷积核。进而得到：
 $$
 \hat{v} \frac{\partial \operatorname{conv}(x, w)}{\partial x}=\operatorname{conv}(\hat{v}, \operatorname{flip}(w))
@@ -773,11 +593,11 @@ z对W的导数同理：
 
 
 
-## Lecture 11: Hardware Acceleration for Linear Algebra
+## Hardware Acceleration for Linear Algebra
 
 ### 通用的加速技术
 
-现代机器学习框架可以视为两层：上层是计算图，用于前向推理、自动微分和反向传播；下层是张量线性代数库，其负责底层的张量计算。在needle中，我们目前使用numpy作为线性代数库。
+现代机器学习框架可以视为两层：上层是计算图，用于前向推理、自动微分和反向传播；下层是张量线性代数库，其负责底层的张量计算。
 
 **Vectorization 向量化**： 如果我们要将两个256长度的array相加，一种标量的处理方式是256个元素逐个相加：
 
@@ -950,7 +770,7 @@ for (int i = 0; i < n/b1; ++i) {
 
 ## 参考
 
-1. [《CMU 10-414 deep learning system》学习笔记 | 周鑫的个人博客 (zhouxin.space)](https://www.zhouxin.space/notes/notes-on-cmu-10-414-deep-learning-system/#lecture-3-manual-neural-networks)
+1. [《CMU 10-414 deep learning system》学习笔记](https://www.zhouxin.space/notes/notes-on-cmu-10-414-deep-learning-system/#lecture-3-manual-neural-networks)
 2. [深度学习系统作业 - 知乎 (zhihu.com)](https://www.zhihu.com/column/c_1582462878204063744)
 
 

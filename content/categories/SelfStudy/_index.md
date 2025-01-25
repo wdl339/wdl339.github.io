@@ -1,6 +1,6 @@
 ---
 title: "课余学习"
-description: "存放关于课外探索学习的内容"
+description: "在学业之外探索学习的内容"
 slug: "SelfStudy"
 image: "yunli.jpg"
 style:
