@@ -20,7 +20,7 @@ math: true
 
 ### 完整实现
 
-完整实现已上传代码仓库：[wdl339/chfs](https://github.com/wdl339/chfs)
+完整实现已上传代码仓库：[wdl339/chfs](https://github.com/wdl339/chfs)。博客内容目前只是简单概览，后续会加入对代码细节的解读。
 
 ### 参考资料
 
