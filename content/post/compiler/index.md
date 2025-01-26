@@ -5,7 +5,7 @@ date : "2025-01-16"
 description : "SJTU软件工程《编译原理与技术》课程大作业，战编译！"
 tags : [
     "编译",
-    "期末"
+    "Lab（大作业）"
 ]
 categories : [
     "Study",

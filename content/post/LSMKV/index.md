@@ -5,7 +5,8 @@ date : "2024-06-30"
 description : "SJTU软件工程《高级数据结构》课程大作业，第一个大型项目！"
 tags : [
     "System",
-    "算法"
+    "算法",
+    "Lab（大作业）"
 ]
 categories : [
     "Study",
@@ -29,7 +30,9 @@ LSM Tree (Log-structured Merge Tree) 是一种可以高性能执行大量写和�
 - DEL(Key)：删除键 Key 及其值。
 - SCAN(Key1, Key2)：读取键 Key 在[Key1, Key2]区间内的键值对。
 
- 
+ 完整实现已上传代码仓库：[wdl339/LSMKV](https://github.com/wdl339/LSMKV)
+
+
 
 ## 基本结构
 
