@@ -20,17 +20,19 @@ math: true
 
 ### 完整实现
 
-完整实现已上传代码仓库：[wdl339/chfs](https://github.com/wdl339/chfs)。博客内容目前只是简单概览，后续会加入对代码细节的解读。
+完整实现已上传代码仓库：[wdl339/chfs](https://github.com/wdl339/chfs)。
 
 ### 参考资料
 
-非常感谢助教们的及时耐心的答疑，以及我见过最好的作业文档：[CSE | Fall 2024 | Schedule](https://ipads.se.sjtu.edu.cn/courses/cse/)。本博客基本沿用了作业文档的框架，但站在已经完成后的视角而非正在实现的视角，有细微调整。
+非常感谢助教们的及时耐心的答疑，以及我见过最好的作业文档（从[CSE | Fall 2024 | Schedule](https://ipads.se.sjtu.edu.cn/courses/cse/)获取）。本博客基本沿用了作业文档的框架，不同之处在于现在是站在已经完成后的视角，而非正在做作业时候的视角。
 
 ### 获取源代码
 
 ```bash
-git clone ...(url) chfs -b final
+git clone https://github.com/wdl339/chfs.git chfs -b final
 ```
+
+（这里url换成https://ipads.se.sjtu.edu.cn:1312/lab/cse-2024-fall.git的话，就是最初始lab1的作业框架）
 
 更改目录权限。以下命令用于授予目录`chfs`内所有文件和目录的写入(`w`)权限给其他用户(`o`)，并且递归(`-R`)操作。
 
@@ -131,6 +133,8 @@ make build-tests -j
 make test -j
 ```
 
+注意：如果测试过程中出错，可能会留下一些中间状态的文件系统数据。这会导致下一次运行测试时，环境不是完全清空的状态，从而可能导致测试失败。中间状态会保存在容器的 /tmp 目录中。在容器里执行 `make clean-fs` 来清理这些中间状态，不需要重新编译。
+
 集成测试将挂载文件系统，并执行一些真实的文件系统操作，如`ls`、`echo`等。要运行集成测试，首先编译Adaptor层，在`build`目录下执行以下命令：
 
 ```bash
@@ -215,18 +219,47 @@ Block层实现了块设备，提供分配/释放block以及从block中读取/写
 在`src/block/manager.cc`中：
 
 - `write_block`：将一个block写入内部块设备。
+
 - `write_partial_block`：将一个部分block写入块设备，提供block中写入内容的偏移量和长度。
+
+  ```
+  auto BlockManager::write_partial_block(block_id_t block_id, 
+  	const u8 *data, usize offset, usize len) -> ChfsNullResult {
+    memcpy(this->block_data + block_id * this->block_sz + offset, data, len);
+    return KNullOk;
+  }
+  ```
+
 - `zero_block`：清除一个block的内容。
+
 - `read_block`：将block内容读入缓冲区。
+
+  ```
+  auto BlockManager::read_block(block_id_t block_id, u8 *data) -> ChfsNullResult {
+    memcpy(data, this->block_data + block_id * this->block_sz, this->block_sz);
+    return KNullOk;
+  }
+  ```
+
+以下这段代码是在分布式的测试的时候使用，当`maybe_failed == true`，`write_block`会每三次固定失败一次，这会使一些操作（如`mknode`必然失败）：
+
+```
+if (this->maybe_failed && block_id < this->block_cnt) {
+    if (this->write_fail_cnt >= 3) {
+      this->write_fail_cnt = 0;
+      return ErrorType::INVALID;
+    }
+  }
+```
 
 #### Block Allocator
 
-Block分配器使用bitmap来管理block的分配和释放。bitmap存储在块设备的某些block中。`src/include/common/bitmap.h`包含了操作bitmap的API。
+Block分配器使用bitmap来管理block的分配和释放。bitmap存储在某些block中。`src/include/common/bitmap.h`包含了操作bitmap的API。
 
 在`src/block/allocator.cc`中：
 
-- `allocate`：分配一个block，返回其block id。
-- `deallocate`：释放一个block。
+- `allocate`：分配一个block。先到bitmap中查找free bit，将其设为1，将改变的bitmap对应的block刷新（flush），根据free bit位置计算并返回block id。
+- `deallocate`：释放一个block。修改对应bitmap并刷新。
 
 
 
@@ -234,7 +267,9 @@ Block分配器使用bitmap来管理block的分配和释放。bitmap存储在块�
 
 Inode层以inode的形式管理Block层提供的block。这一层提供了用于分配/释放inode以及从这些inode中读取/写入数据的API。Superblock也位于这一层，它记录了文件系统的一些关键信息。
 
-Inode的结构在`src/include/metadata/inode.h`和`src/metadata/inode.cc`中实现。一个inode的布局正好适合一个block。
+Inode的结构在`src/include/metadata/inode.h`和`src/metadata/inode.cc`中实现。一个inode的布局正好fit一个block。Inode结构有点像多级页表，除开基本信息之外，就是一条一条的`block id`的条目。CHFS中最多只有一个double indirect block（最后一个条目）。
+
+![Inode结构图（普遍版本）](index.assets/b48fc879ab49be4b127dc72e6a2837e.jpg)
 
 Inode管理器假设块设备上的布局如下：
 
@@ -242,7 +277,7 @@ Inode管理器假设块设备上的布局如下：
 | Super block | Inode Table | Inode allocation bitmap | Block allocation bitmap | Other data blocks |
 ```
 
-- `Inode Table`是`inode_id`到`block_id`的映射， 这与直接存储inode的类不同。它将有更高的块利用率，代价是查找inode时的一次额外查找。`block_id`是实际存储`Inode`的块。首先读取相应的`Inode Table`块，然后获取`block_id`，然后通过这个`block_id`读取实际的`Inode`结构。
+- `Inode Table`是`inode_id`到`block_id`的映射， 这与直接存储inode的类不同。它将有更高的块利用率，代价是查找inode时的一次额外查找。`block_id`是实际存储Inode的块。首先读取相应的`Inode Table`块，然后获取`block_id`，然后通过这个`block_id`读取实际的Inode结构。
 - `Inode allocation bitmap`用于指示每个Inode的使用情况。如果一个inode被占用，bit被设置为1。
 - `Block allocation bitmap`用于指示每个Block的使用情况。如果一个block被分配，bit被设置为1。
 - `Other data blocks`包含通过`BlockAllocator`分配的其他块。
@@ -251,10 +286,67 @@ Inode管理器假设块设备上的布局如下：
 
 在`src/metadata/manager.cc`中：
 
-- `allocate_inode`：分配一个inode并用特定类型初始化它。这个函数接受inode的block id，因为这个函数假设inode所在的块已经分配好了。
-- `free_inode`：释放一个inode。
+- `allocate_inode`：这个函数接受inode的block id，因为这个函数假设inode所在的块已经分配好了。
+
+  1. 分配一个inode，设置inode bitmap。
+
+  ```
+  auto iter_res = BlockIterator::create(this->bm.get(), 1 + n_table_blocks, 1 + n_table_blocks + n_bitmap_blocks);
+  
+  for (auto iter = iter_res.unwrap(); ...) {
+  	auto data = iter.unsafe_get_value_ptr<u8>();
+      auto bitmap = Bitmap(data, bm->block_size());
+      auto free_idx = bitmap.find_first_free();
+      
+      if (free_idx) {
+        bitmap.set(free_idx.value());
+        auto res = iter.flush_cur_block();
+        ...
+      }
+  }
+  ```
+
+  2. 用特定类型初始化inode，设置inode table，返回inode id。
+
+  ```
+  Inode inode(type, bm->block_size());
+  auto inode_id = count * bm->block_size() * KBitsPerByte + free_idx.value();
+  bm->write_block(bid, reinterpret_cast<u8 *>(&inode));
+  set_table(inode_id, bid);
+  ```
+
+- `free_inode`：释放一个inode。设置inode bitmap和inode table。
+
 - `get`：获取当前inode所在的块的block id。
+
 - `set_table`：在Inode表中设置一个inode的block id。
+
+  ```
+  auto InodeManager::set_table(inode_id_t idx, block_id_t bid) -> ChfsNullResult {
+  
+    auto inode_per_block = bm->block_size() / sizeof(block_id_t);
+    auto block_id = 1 + idx / inode_per_block;
+    auto offset = idx % inode_per_block;
+    auto buffer = std::vector<u8>(bm->block_size(), 0);
+  
+    auto res = bm->read_block(block_id, buffer.data());
+    if (res.is_err()) {
+      return ChfsNullResult(res.unwrap_error());
+    }
+  
+    auto table = reinterpret_cast<block_id_t *>(buffer.data());
+    table[offset] = bid;
+  
+    auto res2 = bm->write_block(block_id, buffer.data());
+    if (res2.is_err()) {
+      return ChfsNullResult(res2.unwrap_error());
+    }
+  
+    return KNullOk;
+  }
+  ```
+
+  
 
 
 
@@ -262,14 +354,38 @@ Inode管理器假设块设备上的布局如下：
 
 文件系统层提供了一些基本的文件系统API，包括文件操作API和目录操作API。
 
+#### 初始化
+
+```
+FileOperation::FileOperation(std::shared_ptr<BlockManager> bm,
+                             u64 max_inode_supported)
+    : block_manager_(bm), inode_manager_(std::shared_ptr<InodeManager>(
+                              new InodeManager(bm, max_inode_supported))),
+      block_allocator_(std::shared_ptr<BlockAllocator>(
+          new BlockAllocator(bm, inode_manager_->get_reserved_blocks()))) {
+  // now initialize the superblock
+  SuperBlock(bm, inode_manager_->get_max_inode_supported()).flush(0).unwrap();
+}
+```
+
+这里可以看到CHFS是如何组织起以下这个布局的：
+
+```
+| Super block | Inode Table | Inode allocation bitmap | Block allocation bitmap | Other data blocks |
+```
+
+InodeManager根据`max_inode_supported`，计算出`n_table_blocks`和`n_bitmap_blocks`这两个成员，对应`| Inode Table | Inode allocation bitmap |`。
+
+BlockAllocator能看到的部分是`| Block allocation bitmap | Other data blocks |`，前面的部分属于`reserved_blocks`，前面已经确定大概占多少block了。
+
 #### 文件操作
 
 在`src/filesystem/data_op.cc`中：
 
-- `alloc_inode`：分配一个inode并用给定的类型初始化它。这个函数将为创建的inode分配一个block。这是文件系统层的`create`文件操作。
+- `alloc_inode`：先（Block Allocator）为inode分配一个block，再（Inode Manager）分配一个inode。这是文件系统层的`create`文件操作。
 
-- `read_file`：读取一个inode的block内容。
-- `write_file`：写入一个inode的block。这个函数将在inode内动态分配/释放block。
+- `read_file`：读取一个inode的block内容。按照inode结构图，读取并拼凑data得到完整的内容。
+- `write_file`：写入一个inode的block。注意可能由于内容的增减，需要动态分配/释放block并改变Inode和indirect block的内容。
 
 #### 目录项操作
 
@@ -284,8 +400,8 @@ Inode管理器假设块设备上的布局如下：
 
 在`src/filesystem/directory_op.cc`中，这些函数操作目录内的文件：
 
-- `lookup`：给定文件名及其父目录的inode id，返回其inode id。
-- `mk_helper`：创建目录或文件在其父目录内的辅助函数。
+- `lookup`：给定文件名及其父目录的inode id，返回文件的inode id。调用`read_directory`然后遍历即可。
+- `mk_helper`：给定文件名及其父目录的inode id，在父目录内创建目录或文件。修改directory并调用`alloc_inode`。
 - `unlink`：给定文件/目录的名称，从其父目录中移除它并释放其block。
 
 
@@ -452,7 +568,7 @@ int res = add_future->get().as<int>();
 - `alloc_block`：创建一个空块。
 - `free_block`：清除一个块的内容。
 
-与单机的区别是，它们是远程调用。
+本质上还是调用block manager或allocator里的方法。与单机的区别是，它们是远程调用。
 
 #### Metadata Server
 
@@ -462,28 +578,145 @@ Metadata Server的块布局：
 
 对于目录inode，它保存其所有直接和间接块ID，类似于单机。对于文件inode，它保存其所有块的映射（机器id和机器上的block id）。
 
-在`src/distributed/metadata_server.cc`和`src/distributed/dataserver.cc`中（大多数函数的实现与单机几乎相同）：
+在`src/distributed/metadata_server.cc`中（大多数函数的实现与单机几乎相同）：
 
 - `mknode`：用给定的类型、名称和父目录创建一个inode。
+
 - `unlink`：从其父目录中删除一个文件。
+
 - `lookup`：尝试通过其名称和父目录搜索一个inode。
-- `allocate_block`：为文件分配一个块，以便客户端可以将数据写入该块。
-- `free_block`：在Data Server上释放文件的一个块，并在Metadata Server上删除其记录。
+
 - `readdir`：读取目录的内容。
+
 - `get_block_map`：返回inode的块映射。它包含每个块的块ID和机器ID。对于每个块，此函数还将返回其版本号。
+
 - `get_type_attr`：获取inode的类型和属性。
+
+- `allocate_block`：为文件分配一个块，以便客户端可以将数据写入该块。
+
+  ```
+  auto MetadataServer::allocate_block(inode_id_t id) -> BlockInfo {
+    auto bm = this->operation_->block_manager_;
+    usize block_size = bm->block_size();
+    std::vector<u8> inode(block_size);
+    auto inode_p = reinterpret_cast<Inode *>(inode.data());
+    fo_mtx.lock();
+    auto read_res = this->operation_->inode_manager_->read_inode(id, inode);
+    if (read_res.is_err()) {
+      return {};
+    }
+    auto inode_id = read_res.unwrap();
+    
+    block_id_t block_id = 0;
+    mac_id_t mac_id = 0;
+    version_t version_id = 0;
+    mac_id_t generated_id = generator.rand(1, num_data_servers);
+  
+    for(int try_times = 0; ; try_times++){
+      mac_id = (generated_id + try_times) % num_data_servers + 1;
+      auto alloc_res = clients_[mac_id]->call("alloc_block");
+      if(alloc_res.is_err())
+        continue;
+  
+      auto resp = alloc_res.unwrap();
+      auto bv_id = resp->as<std::pair<block_id_t, version_t>>();
+      block_id = bv_id.first;
+      version_id = bv_id.second;
+      if(!block_id)
+        continue;
+        
+      break;
+    }
+  
+    u64 content_sz = inode_p->get_size();
+    auto num_block = content_sz / block_size;
+    if(content_sz % block_size != 0)
+      num_block++;
+  
+    inode_p->blocks[num_block * 2] = block_id;
+    inode_p->blocks[num_block * 2 + 1] = (static_cast<u64>(mac_id) << 32) | static_cast<u64>(version_id);
+    inode_p->inner_attr.size += block_size;
+    inode_p->inner_attr.set_all_time(time(0));
+  
+    auto write_res = bm->write_block(inode_id, inode.data());
+    fo_mtx.unlock();
+    if (write_res.is_err()) {
+      return {};
+    }
+  
+    return {block_id, mac_id, version_id};
+  }
+  ```
+
+- `free_block`：在Data Server上释放文件的一个块，并在Metadata Server上删除其记录。
 
 #### Filesystem Client
 
 在`src/distributed/client.cc`中：
 
 - `mknode`：用给定的类型、名称和父目录创建一个inode。
+
 - `unlink`：从其父目录中删除一个文件。
+
 - `lookup`：尝试通过其名称和父目录搜索一个inode。
+
 - `readdir`：读取目录的内容。
+
 - `get_type_attr`：获取inode的类型和属性。
+
 - `read_file`：读取文件的内容。
+
 - `write_file`：写入文件的内容。
+
+  ```
+  auto ChfsClient::write_file(inode_id_t id, usize offset, std::vector<u8> data)
+      -> ChfsNullResult {
+    auto get_map_res = metadata_server_->call("get_block_map", id);
+    if(get_map_res.is_err())
+      return ChfsNullResult(ErrorType::BadResponse);
+    auto get_map_resp = get_map_res.unwrap();
+    auto block_map = get_map_resp->as<std::vector<BlockInfo>>();
+    auto num_block = block_map.size();
+    auto write_sz = 0;
+    auto cur_block = offset / DiskBlockSize;
+    auto cur_offset = offset % DiskBlockSize;
+    usize size = data.size();
+  
+    while(write_sz < size){
+      BlockInfo cur_info;
+      if(cur_block < num_block){
+        cur_info = block_map[cur_block];
+      } else {
+        auto alloc_res = metadata_server_->call("alloc_block", id);
+  
+        if(alloc_res.is_err())
+          return ChfsNullResult(ErrorType::BadResponse);
+        auto alloc_resp = alloc_res.unwrap();
+        cur_info = alloc_resp->as<BlockInfo>();
+      }
+  
+      block_id_t block_id = std::get<0>(cur_info);
+      mac_id_t mac_id = std::get<1>(cur_info);
+  
+      auto len = std::min(DiskBlockSize - cur_offset, size - write_sz);
+      auto cur_data = std::vector<u8>(data.begin() + write_sz, data.begin() + write_sz + len);
+      auto write_res = data_servers_[mac_id]->call("write_data", block_id, cur_offset, cur_data);
+      if(write_res.is_err())
+        return ChfsNullResult(ErrorType::BadResponse);
+      auto resp = write_res.unwrap();
+      auto res = resp->as<bool>();
+      if(!res)
+        return ChfsNullResult(ErrorType::BadResponse);
+  
+      cur_block++;
+      cur_offset = 0;
+      write_sz += len;
+    }
+  
+    return KNullOk;
+  }
+  ```
+
 - `free_file_block`：释放文件的一个块，并在Metadata Server上删除其记录。
 
 类似于GFS，如果客户端想要读写一个文件，它应该首先从Metadata Server获取块映射（属于该文件的块的块ID）。然后它可以直接向Data Server上的相应块发送读写请求。如果客户端想要写入一个空文件，它应该首先调用Metadata Server在Data Server上分配一个块。
@@ -507,7 +740,7 @@ Metadata Server的块布局：
 
 ### 支持并发
 
-为了应对多个线程并发处理客户端的RPC的情况，在系统中添加全局锁（2PL还是有点难了呜呜），以保持以下这些元数据操作的Before-or-After原子性。
+为了应对多个线程并发处理客户端的RPC的情况，在系统中添加全局锁（2PL有点搞不明白呜呜），以保持以下这些元数据操作的Before-or-After原子性。
 
 - `mknode`
 - `unlink`
@@ -518,35 +751,106 @@ Metadata Server的块布局：
 
 ### 故障恢复
 
-使用重做日志来确保文件系统元数据操作的all-or-nothing原子性。有以下假设：
+使用redo日志来确保文件系统元数据操作的all-or-nothing原子性。有以下假设：
 
 - 通过调用`BlockManager::write_block`写入磁盘的数据不会立即持久化到磁盘。这些更改会保留在页面缓存中，直到它们被刷新到磁盘。有两个接口用于将数据刷新到磁盘：`BlockManager::sync`和`BlockManager::flush`。前者将特定块刷新到磁盘，后者将页面缓存刷新到磁盘。这些调用返回后，数据才会持久化到磁盘。
 - 向块写入数据是原子性的。也就是说，如果你向块写入数据，数据将被完全写入或根本不写入。
+- 只确保MetadataServer的以下两个操作的原子性：
+  - `MetadataServer::mknode`
+  - `MetadataServer::rmnode`
 
 #### 日志管理器
 
 为了简化，只在日志中记录更新的块值。例如，如果创建了一个文件，它将至少更新3个块，因此日志将包含3个新块。
 
-首先，修改`BlockManager`以支持在磁盘上存储日志，在磁盘上保留1024个块用于持久化日志。并且每一次调用`write_block`，都会同时写下日志，将日志刷新到磁盘。
+首先，修改`BlockManager`以支持在磁盘上存储日志，在磁盘上保留1024个块用于持久化日志（假设不会一口气用完这么多块）。现在，块设备上的布局如下：
+
+```
+| Super block | Inode Table | Inode allocation bitmap | Block allocation bitmap | Other data blocks | Log super block | Transaction table | Log table | Log blocks |
+```
+
+Log super block存的信息包括：
+
+- `current_log_id`：当前写日志在Log blocks的位置（0 < `current_log_id` < 1024）
+- `log_block_cnt`：当前写了多少Log block（好像没啥用）
+- `current_txn_id`：当前的事务的id，由于全局锁，一次最多就有一个事务在工作，这简化了一些麻烦。
+- `txn_entry_cnt`：TxnEntry的数量
+
+Transaction table里的每一个元素是一个`TxnEntry`，Log table里的每一个元素是一个`ActionEntry`。
+
+```
+class ActionEntry {
+public:
+  block_id_t block_id;
+  block_id_t log_block_id;
+  int64_t table_offset;
+  ...
+};
+
+class TxnEntry {
+public:
+  u16 txn_id;
+  TxnType txn_type;
+  u8 type;
+  inode_id_t parent;
+  const char* name;
+  bool is_committed;
+  int64_t table_offset;
+  ...
+};
+```
+
+一个Action其实就对应一次`write_block`，`ActionEntry`的：
+
+- `block_id`记录着这次`write_block`改动的block的id
+- `log_block_id`记录着这次`write_block`对应的Log block的id
+- 这个Log block的内容就是这次`write_block`的内容（不管是不是partial，都把整个block记下来）
+
+这样一来，当我要重做这个action的时候，把`log_block_id`对应block的内容copy到`block_id`对应的block即可。
+
+每个事务其实是用类似链表的结构串起每个Action（`table_offset`就是下一个`ActionEntry`在Log table中的位置，充当指针的角色）。
+
+每一次调用`write_block`，都会同时写下日志，将日志刷新到磁盘。
 
 然后，在`src/distributed/commit_log.cc`中：
 
-- `alloc_txn`：开启一个新的事务。
-- `recover`：从磁盘读取块值的变化，并重做操作以实现全有或全无的原子性。
+- `alloc_txn`：开启一个新的事务。修改的是`| Log super block | Transaction table |`。
 
-只确保以下两个函数的原子性：
+在`src/include/distributed/metadata_server.h`中：
 
-- `MetadataServer::mknode`
-- `MetadataServer::rmnode`
+- `recover`：从磁盘读取块值的变化，并重做操作以实现all-or-nothing的原子性。
 
-你可以参考`test/distributed/commit_log_test.cc`中这些测试的详细实现，以帮助你调试。
+  ```
+  auto recover() -> void {
+      BlockManager *bm = this->operation_->block_manager_.get();
+      std::vector<u16> log_super_block(bm->block_sz);
+      memcpy(log_super_block.data(), bm->block_data + bm->block_cnt * bm->block_sz, bm->block_sz);
+      auto super_block = reinterpret_cast<SuperLogBlock *>(log_super_block.data());
+      u16 txn_entry_cnt = super_block->txn_entry_cnt;
+      for (u16 i = 0; i < txn_entry_cnt; i++) {
+        TxnEntry txn_entry;
+        memcpy(&txn_entry, bm->block_data + (bm->block_cnt + LogBlockCntWoTxn) * bm->block_sz + i * sizeof(TxnEntry), sizeof(TxnEntry));
+        if (txn_entry.is_committed != true) {
+          if (txn_entry.txn_type == TxnType::MKNODE) {
+            const std::string name(txn_entry.name);
+            mknode(txn_entry.type, txn_entry.parent, name);
+          } else if (txn_entry.txn_type == TxnType::UNLINK) {
+            const std::string name(txn_entry.name);
+            unlink(txn_entry.parent, name);
+          }
+        }
+      }
+    }
+  ```
+
+嘶，前面搞了半天什么log block，`recover`的时候好像完全没用上？实际上是因为我在实现完前面一大堆之后才开始实现`recover`，然后发现其实根本不用那么麻烦......用log block的方法相当于物理日志（记录block的具体变化），直接在`TxnEntry`里记录操作信息就有点像逻辑日志。理论上说redo日志应该使用物理日志（因为要求幂等性），不过这里因为`mknode`和`rmnode`这两个操作本身就是幂等的，所以物理日志和逻辑日志都没有问题。
 
 #### checkpoint
 
 存储日志可能会占用大量磁盘空间，需要实现检查点以减少日志大小。在`src/distributed/commit_log.cc`中：
 
 - `commit_log`：标记一个事务为完成。
-- `checkpoint`：将所有完成的事务的修改写入磁盘，并丢弃它们的日志。
+- `checkpoint`：将所有完成的事务的TxnEntry丢弃。
 - `get_log_entry_num`：返回磁盘中的日志条目数量。
 
 
@@ -557,7 +861,7 @@ Metadata Server的块布局：
 
 **Raft** 是一种用于复制日志的共识算法。Raft将共识问题分解为相对独立的子问题，这些子问题更容易理解。 Raft中的关键数据结构是**log**，它将客户端的请求组织成一个序列。 Raft保证所有服务器将以相同的顺序应用相同的日志命令，这意味着服务器都将处于一致的状态。 如果服务器失败但后来恢复，Raft会负责将其日志更新到最新状态。 只要至少有大多数服务器处于活动状态并且连接，Raft就可以工作。
 
-Raft通过首先在服务器之间选举一个领导者来实现共识，然后赋予领导者管理和管理日志的权限和责任。领导者接受客户端的日志条目（log entry），在其他服务器上复制它们，并告诉服务器何时可以安全地将日志条目应用到它们的状态机上。日志应该持久化，以容忍机器崩溃。随着日志的增长，Raft将通过快照（snapshot）来压缩日志。
+Raft通过首先在服务器之间选举一个leader来实现共识，然后赋予leader管理和管理日志的权限和责任。leader接受客户端的日志条目（log entry），在其他服务器上复制它们，并告诉服务器何时可以安全地将日志条目应用到它们的状态机上。日志应该持久化，以容忍机器崩溃。随着日志的增长，Raft将通过快照（snapshot）来压缩日志。
 
 Raft论文的[完整版本](https://raft.github.io/raft.pdf)。论文中的图2和图13可以涵盖本项目中的大部分设计。
 
@@ -593,11 +897,28 @@ public:
 };
 ```
 
+#### RaftLogEntry
+
+```
+template <typename Command>
+class RaftLogEntry {
+public:
+    int term;
+    int index;
+    Command command;
+
+    RaftLogEntry(int term, int index, Command command)
+        : term(term), index(index), command(command) {}
+};
+```
+
+![](index.assets/image-20250201201201049.png)
+
 #### RaftNode
 
 `src/include/rsm/raft/node.h`中的`RaftNode`类表示一个Raft节点（或Raft服务器）。`RaftNode`是一个带有两个模板参数`StateMachine`和`Command`的类模板，意味着它将共识算法与状态机解耦。
 
-Raft算法是**异步**实现的，这意味着事件（例如领导者选举或日志复制）都应该在后台发生。`RaftNode` 在调用 `RaftNode::start()` 后启动，并将创建4个后台线程。后台线程将在后台定期执行某些操作（例如在 `run_background_ping` 中发送心跳，或在 `run_background_election` 中开始选举），后台线程在每次循环迭代后睡眠一段时间，而不是一直等事件。
+Raft算法是**异步**实现的，这意味着事件（例如leader选举或日志复制）都应该在后台发生。`RaftNode` 在调用 `RaftNode::start()` 后启动，并将创建4个后台线程。后台线程将在后台定期执行某些操作（例如在 `run_background_ping` 中发送心跳，或在 `run_background_election` 中开始选举），后台线程在每次循环迭代后睡眠一段时间，而不是一直等事件。
 
 除了事件，`RaftNode` 之间的RPC也应该异步发送和处理，使用线程池（`ThreadPool`）来处理异步事件。
 
@@ -634,6 +955,35 @@ typedef struct {
 
 
 
+### 一致性与安全性
+
+A log is committed if it can be safely applied to the state machine. 
+
+High level of coherency（一致性） between logs maintained by the raft: If log entries on different servers have the same index & term:
+
+- They store the same command
+- The logs are identical in all preceding entries
+
+If a given entry is committed, all preceding entries are also committed.
+
+Overwrite can ensure consistency. But it makes a subtle issue:When can we commit a log entry? (Since an appended log entry may be overwritten)
+
+Raft safety property: If a leader has decided that a log entry is committed, that entry will be present in the logs of all future leaders (no overwritten).
+
+To ensure safety property:
+
+1. During elections, choose candidate with log most likely to contain all committed entries. Voting server V denies vote if its log is “more complete”: `(lastTermV > lastTermC) ||(lastTermV == lastTermC) && (lastIndexV > lastIndexC)`
+
+2. For a leader to decide an (previous) entry is committed: 
+
+   - Must be stored on a majority of servers
+
+   - At least one new entry from leader’s term must also be stored on majority of servers
+
+     ![否则会出现这种情况](index.assets/image-20250201200519770.png)
+
+
+
 ### Leader Election & Heartbeat
 
 主要涉及：
@@ -642,9 +992,9 @@ typedef struct {
 2. `node.h`中的：
    - `RaftNode::request_vote`：发起投票
    - `RaftNode::handle_request_vote_reply`：回复投票
-   - `RaftNode::run_background_election`：在领导者超时后将节点转换为候选者，并异步发送`request_vote` RPC开始选举。
+   - `RaftNode::run_background_election`：在leader超时后将节点转换为candidate，并异步发送`request_vote` RPC开始选举。
 
-为了保持领导地位，领导者应该定期向追随者发送心跳（即一个空的`AppendEntries` RPC）。通过实现`AppendEntries` RPC来实现心跳。
+为了保持领导地位，leader应该定期向follower发送心跳（即一个空的`AppendEntries` RPC）。通过实现`AppendEntries` RPC来实现心跳。
 
 1. 在`protocol.h`中的`AppendEntriesArgs`、`AppendEntriesReply`
 2. 在`node.h`中的`RaftNode::append_entries`、`RaftNode::handle_append_entries_reply`、`RaftNode::run_background_ping`
@@ -661,20 +1011,67 @@ typedef struct {
 
 在`node.h`中：
 
-1. `RaftNode::new_command`：将新命令追加到领导者的日志中。
+1. `RaftNode::new_command`：将新命令追加到leader的日志中。
 2. 完成与`AppendEntries` RPC相关的方法
-3. `RaftNode::run_background_commit`：异步将日志发送给追随者。
+3. `RaftNode::run_background_commit`：异步将日志发送给follower。
 4. `RaftNode::run_background_apply`：将提交的日志应用到状态机。
 
 **一些注意事项**：
 
 - 第一个日志索引是1而不是0。为了简化编程，在日志的最开始追加一个空的日志条目。由于`lastApplied`索引从0开始，第一个空的日志条目永远不会被应用到状态机。
 
+- `nextIndex`的作用：
+
+  ![实际实现的时候跳步要更大一些，以免耗时](index.assets/image-20250201201554786.png)
+
 
 
 ### Log Persistency
 
 在`log.h`中实现`RaftLog`类。在`RaftNode`中创建`RaftLog`对象。每个Raft节点将有自己的日志来持久化状态。并且在故障后或者节点被创建时，节点将通过日志恢复。日志存储在`/tmp/raft_log`下。
+
+```
+template <typename Command>
+void RaftLog<Command>::append_log_entry(RaftLogEntry<Command> entry)
+{
+    has_log = 1;
+    std::unique_lock<std::mutex> lock(mtx);
+    log.push_back(entry);
+    std::vector<u8> log_block(BLOCK_SIZE);
+    memcpy(log_block.data(), &entry.term, sizeof(int));
+    memcpy(log_block.data() + sizeof(int), &entry.index, sizeof(int));
+    std::vector<u8> cmd_data = entry.command.serialize(entry.command.size());
+    memcpy(log_block.data() + 2 * sizeof(int), cmd_data.data(), cmd_data.size());
+    bm_->write_block(LOG_BLOCK_BEGIN_POS + n_log_entries, log_block.data());
+    n_log_entries++;
+    save_metadata();
+    lock.unlock();
+}
+```
+
+```
+template <typename Command>
+void RaftLog<Command>::recover()
+{
+    std::unique_lock<std::mutex> lock(mtx);
+    get_metadata();
+    
+    log.clear();
+    for (int i = 0; i < n_log_entries; i++) {
+        std::vector<u8> log_block(BLOCK_SIZE);
+        bm_->read_block(LOG_BLOCK_BEGIN_POS + i, log_block.data());
+        int term, index;
+        memcpy(&term, log_block.data(), sizeof(int));
+        memcpy(&index, log_block.data() + sizeof(int), sizeof(int));
+        Command cmd;
+        std::vector<u8> cmd_data(log_block.data() + 2 * sizeof(int), log_block.data() + BLOCK_SIZE);
+        cmd.deserialize(cmd_data, cmd.size());
+        log.push_back(RaftLogEntry<Command>(term, index, cmd));
+    }
+
+    ...
+}
+```
 
 假设Raft日志的总大小总是小于64K，单个日志条目的大小总是小于4K。不考虑磁盘I/O期间的崩溃。
 
@@ -732,9 +1129,97 @@ auto inode_id = res_lookup.unwrap();
 
 
 
+### Mapper & Reducer
+
+在`src/map_reduce/basic_mr.cc`中实现Word Count的Mapper和Reducer。
+
+```
+std::vector<KeyVal> Map(const std::string &content) {
+        // split contents into an array of words.
+        std::vector<KeyVal> ret;
+        std::string tmp;
+
+        for (char c : content) {
+            if (!std::isalpha(c)) {
+                if (!tmp.empty()) {
+                    ret.emplace_back(tmp, "1");
+                    tmp.clear();
+                }
+            } else {
+                tmp += c;
+            }
+        }
+
+        if (!tmp.empty()) {
+            ret.emplace_back(tmp, "1");
+        }
+
+        return ret;
+    }
+    
+std::string Reduce(const std::string &key, 
+	const std::vector<std::string> &values) {
+        // return the number of occurrences of the word.
+        std::string ret = "0";
+        int count = 0;
+        for (const std::string &value : values) {
+            count += std::stoi(value);
+        }
+        ret = std::to_string(count);
+        return ret;
+    }
+    
+std::vector<KeyVal> sort_and_reduce(std::vector<KeyVal> &kvs) {
+        std::sort(kvs.begin(), kvs.end(), 
+        [](const KeyVal &a, const KeyVal &b) {
+            return a.key < b.key;
+        });
+
+        std::vector<std::string> values;
+        std::vector<KeyVal> res_kvs;
+
+        std::string key = kvs[0].key;
+        for (const KeyVal &kv : kvs) {
+            if (kv.key == key) {
+                values.push_back(kv.val);
+            } else {
+                std::string result = Reduce(key, values);
+                res_kvs.emplace_back(key, result);
+                key = kv.key;
+                values.clear();
+                values.push_back(kv.val);
+            }
+        }
+
+        std::string result = Reduce(key, values);
+        res_kvs.emplace_back(key, result);
+        return res_kvs;
+    }
+```
+
+
+
 ### Sequential MapReduce
 
-在`src/map_reduce/basic_mr.cc`中实现了Word Count的Mapper和Reducer，以及在`src/map_reduce/mr_sequential.cc`中的主干逻辑，在单个进程中依次运行Map和Reduce。
+在`src/map_reduce/mr_sequential.cc`中的主干逻辑，在单个进程中依次运行Map和Reduce。
+
+```
+void SequentialMapReduce::doWork() {
+        std::vector<KeyVal> kvs;
+        for (const std::string &file : files) {
+            std::string content = get_file_content(chfs_client.get(), file);
+            if (content.empty()) {
+                continue;
+            }
+            auto keyVals = Map(content);
+            kvs.insert(kvs.end(), keyVals.begin(), keyVals.end());
+        }
+        std::vector<KeyVal> res_kvs = sort_and_reduce(kvs);
+        write_to_file(chfs_client.get(), outPutFile, res_kvs);
+    }
+```
+
+（这里当时为了通过那个要求并行不能慢于串行的三倍的测试，反向优化了串行，多写了一些没必要写的文件）
 
 
 
