@@ -16,7 +16,183 @@ math: true
 
 
 
-（内容持续更新中）
+
+
+## Hardware Acceleration for Linear Algebra
+
+### 通用的加速技术
+
+现代机器学习框架可以视为两层：上层是计算图，用于前向推理、自动微分和反向传播；下层是张量线性代数库，其负责底层的张量计算。
+
+**Vectorization 向量化**： 如果我们要将两个256长度的array相加，一种标量的处理方式是256个元素逐个相加：
+
+```C
+void add(float* A, float* B, float* C){
+    for(int i=0; i<256; i++){
+        C[i] = A[i] + B[i];
+    }
+}
+```
+
+但是很多硬件都提供了批量从内存读取、向量运算指令，即优化为如下代码：
+
+```C
+void vecadd(float* A, float* B, float* C){
+    for(int i=0; i<64; i++){
+        float4 a = load_float4(A + i*4);
+        float4 b = load_float4(B + i*4);
+        float4 c = add_float4(a, b);
+        store_float4(C + i*4, c);
+    }
+}
+```
+
+这里要求ABC所在的内存块要是按照128 bit对齐的。
+
+**Data layout & strides 数据布局&步幅：** 在内存中，数据是线性排列的，因此一个矩阵在内存中有两种布局方式：行优先和列优先。现代的语言偏向使用行优先：`A[i, j] = Adata[i * A.shape[1] + j `
+
+在许多库中，还引入了一种stride格式布局，即在保存张量时，额外保存一个数据，用于标识每个维度上需要移动的步长。在这种情况下，`A[i, j] = Adata[i * A.strides[0] + j * A.strides[1]]`
+
+这个方案的优点是可以在不用复制数据的情况下实现很多操作：通过改变offset和shape来实现切片；通过交换strides来实现转置；通过插入等于0的stride来实现广播。
+
+缺点是访存操作可能不再连续，因此会把向量化技术变得复杂，很多线性代数操作可能需要先压缩数组。
+
+**Parallelization 并行化：** 使用openmp可以将计算分配给多个核并行处理：
+
+```C
+void vecadd(float* A, float* B, float* C){
+    #pragma omp parallel for
+    for(int i=0; i<64; i++){
+        float4 a = load_float4(A + i*4);
+        float4 b = load_float4(B + i*4);
+        float4 c = add_float4(a, b);
+        store_float4(C + i*4, c);
+    }
+}
+```
+
+
+
+### 样例学习：矩阵乘法
+
+本节讨论如何优化矩阵乘法。
+
+**Vanilla matrix multiplication 朴素矩阵乘法：** 任务：计算C = dot(A, B.T)。最朴素的想法是使用三重循环完成，即如下代码：
+
+```c
+float A[n][n], B[n][n], C[n][n];
+
+for(int i=0; i<n; i++){
+    for(int j=0; j<n; j++){
+        c[i][j] = 0;
+        for(int k=0; k<n; k++){
+        c[i][j] += A[i][k] * B[j][k];
+        }
+    }
+}
+```
+
+通过优化数据的读取可以显著提升计算速度：
+
+![](index.assets/f1.png)
+
+考虑到这一点，我们可以将中间变量保存到寄存器中，即：
+
+```c
+dram float A[n][n], B[n][n], C[n][n];
+
+for(int i=0; i<n; i++){
+    for(int j=0; j<n; j++){
+        register float c = 0;
+        for(int k=0; k<n; k++){
+            register float a = A[i][k];
+            register float b = B[j][k];
+            c += a*b;
+        }
+        C[i][j] = c;
+    }
+}
+```
+
+上述代码中，从读取A、B到寄存器的操作分别进行了$n^3$次，需要3个寄存器来完成该操作。
+
+**Register tiled matrix multiplication 寄存器分块矩阵乘法：** 该方案的思路是将结果进行分块，每次计算其中的一块，即：
+
+```c
+dram float A[n/v1][n/v3][v1][v3];
+dram float B[n/v2][n/v3][v2][v3];
+dram float C[n/v1][n/v2][v1][v2];
+
+for (int i = 0; i < n/v1; ++i) {
+    for (int j = 0; j < n/v2; ++j) {
+        register float c[v1][v2] = 0;
+        for (int k = 0; k < n/v3; ++k) {
+            register float a[v1][v3] = A[i][k];
+            register float b[v2][v3] = B[j][k];
+            c += dot(a, b.T);
+        }
+        C[i][j] = c;
+    }
+}
+```
+
+![](index.assets/f2.png)
+
+A的数据加载开销是 $n^3/v2$，B的数据加载开销是 $n^3/v1$，A的寄存器开销是v1×v3，B的寄存器开销是v2×v3，C的寄存器开销是v1×v2。注意到v3不影响数据加载的开销，因此可以取v3为1，然后在满足寄存器总数约束的情况下，最大化v1和v2。
+
+之所以能够减小开销是因为在矩阵计算中，元素被重复使用，通过每次计算一个分块的方式，可以保证这个分块内用到的重复数据只要加载一次。
+
+**Cache line aware tiling 缓存行感知分块：** 前面我们使用寄存器来进行加速，本节我们考虑使用cache来加速。我们的实现代码为：
+
+```c
+dram float A[n/b1][b1][n];
+dram float B[n/b2][b2][n];
+dram float C[n/b1][n/b2][b1][b2];
+
+for (int i = 0; i < n/b1; ++i) {
+    l1cache float a[b1][n] = A[i];
+    for (int j = 0; j < n/b2; ++j) {
+        l1cache float b[b2][n] = B[j];
+        
+        C[i][j] = dot(a, b.T); #可进一步使用寄存器分块
+    }
+}
+```
+
+上述代码中，A的加载开销是 $n^2$，B的加载开销是 $n^3/b1$。有两个约束，一个是b1 × n + b2 × n <l1 chche size，另一个是为了使用寄存器分块，b1 %  v1 == 0, b2 % v2 == 0。
+
+**Put it together** 将缓存版本的dot运算使用寄存器版本展开，可以得到最终的分块乘法实现：
+
+```c
+dram float A[n/b1][b1/v1][n][v1];
+dram float B[n/b2][b2/v2][n][v2];
+
+for (int i = 0; i < n/b1; ++i) {
+    l1cache float a[b1/v1][n][v1] = A[i];
+    for (int j = 0; j < n/b2; ++j) {
+        l1cache b[b2/v2][n][v2] = B[j];
+        for (int x = 0; x < b1/v1; ++x)
+            for (int y = 0; y < b2/v2; ++y) {
+                register float c[v1][v2] = 0;
+                for (int k = 0; k < n; ++k) {
+                    register float ar[v1] = a[x][k][:];
+                    register float br[v2] = b[y][k][:];
+                    C += dot(ar, br.T)
+                }
+            }
+    }
+}
+```
+
+上述代码的数据加载开销是：$l1speed * (n^3 / v2 + n^3/v1) +  dramspeed * (n^2 + n^3/b1)$。
+
+**Common reuse patterns：**` C[i][j] = sum(A[i][k] * B[j][k], axis=k)`。A的访问与j无关，将j维度平铺v，可以重用A v次。
+
+**possible reuse pattern in convolution：**
+
+![](index.assets/f3.png)
+
+
 
 ## GPU Acceleration
 
@@ -215,7 +391,53 @@ for(int j = 0; j < L * S / nthreads; ++j) {
 
 
 
+## Training Large Models
 
+mlsys的三个元素：data，model，compute
+
+### 节省内存
+
+节省内存消耗，在一台设备上fit更大的model。GPU的全局内存（global memory）大小是bottleneck。
+
+![](index.assets/image-20250202170500273.png)
+
+内存消耗的来源包括：模型权重、优化器状态、中间激活层的输出值。
+
+对于推理来说，保存激活层状态只需要两块buffer（O(1)），分别保存输入和输出，下一层的输入就是上一层的输出。
+
+对于训练而言，由于计算每一层的梯度时都用到了该层的输入，所以每个激活层都要一块buffer，空间复杂度O(n)。
+
+checkpoint技术节省内存：每隔一个激活层才保存该层的值，在反向传播时，如果用到未保存的隐藏层，则通过上一个隐藏层计算出该层的值。以时间换空间。对于一个n层的网络，每隔k个隐藏层保存一次结果，空间复杂度为O(n/k)+O(k)，当$k=\sqrt{n}$时取到最小值。
+
+### 模型并行（Model parallel training）
+
+是将计算图进行划分，并分配给不同的worker进行执行，通过network在worker间传递数据。
+
+![](index.assets/image-20250202173021844.png)
+
+当worker1计算来自worker0的数据时，worker0可以并行计算下一个minibatch的数据。
+
+### 数据并行（Data parallel training）
+
+![](index.assets/image-20250202173315303.png)
+
+
+
+让k个worker分别访问minibatch的B / k个部分，并运行梯度计算，然后将所有梯度加在一起。allreduce抽象进行汇总：
+
+![](index.assets/image-20250202173634494.png)
+
+我们还可以将参数使用专门的参数服务器保存，需要访问或者更新参数时调用相应API即可。参数服务器的好处是其不需要等待所有的worker都计算结束再更新。
+
+![](index.assets/image-20250202174206882.png)
+
+通信与计算的平衡（overlap）：
+
+![](index.assets/image-20250202174131800.png)
+
+$w_2$没算完也没关系，$w_1$算完可以继续算下一个epoch的。
+
+（Model Deployment 和 Machine learning compilation就不记了）
 
 
 
