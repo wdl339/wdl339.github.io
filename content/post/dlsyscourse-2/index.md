@@ -227,6 +227,9 @@ __global__ void VecAddKernel(float* A, float *B, float* C, int n) {
 - `blockDim.x` 是每个线程块中的线程数
 - `threadIdx.x` 是线程在线程块中的索引
 
+
+![在这幅图中，gridDim.x=gridDim.y=gridDim.z=3，blockDim.x=blockDim.y=blockDim.z=4](index.assets/image-20250203180122941.png)
+
 每个线程计算向量 `a` 和 `b` 的一个元素之和，并将结果存储在向量 `c` 中。如果数据之间的依赖关系较强的话，可能就没办法并行。
 
 为了执行上述GPU的向量加法，在主机端要执行以下内容：
@@ -306,6 +309,28 @@ __global__ void WindowSumSharedKernel(float* A, float* B, int n) {
 
 ### 样例学习：GPU上的矩阵乘
 
+最简单的版本：
+
+```
+__global__ void mm(const float* a, const float* b, float* out, uint32_t M, uint32_t N, uint32_t P) {
+    int row = blockIdx.x * blockDim.x + threadIdx.x;
+    int col = blockIdx.y * blockDim.y + threadIdx.y;
+    float sum = 0.0f;
+    if (row < M && col < P) {
+        for (int k = 0; k < N; ++k) {
+            sum += a[row * N + k] * b[k * P + col];
+        }
+        out[row * P + col] = sum;
+    }
+}
+
+void Matmul(const CudaArray& a, const CudaArray& b, CudaArray* out, uint32_t M, uint32_t N, uint32_t P) {
+  dim3 grid_dim = dim3((M + TILE - 1) / TILE, (P + TILE - 1) / TILE, 1);
+  dim3 block_dim = dim3(4, 4, 1);
+  MatmulKernel<<<grid_dim, block_dim>>>(a.ptr, b.ptr, out->ptr, M, N, P);
+}
+```
+
 从线程的细粒度来说，我们可以在GPU上实现一个寄存器分块版本的矩阵乘法：
 
 ```
@@ -364,12 +389,9 @@ __global__ void mm(float A[N][N], float B[N][N], float C[N][N]) {
 }
 ```
 
-上述代码从全部内存到共享内存的加载过程被复用L次（计算每个分块矩阵都要读取L次AB的行列向量），从共享内存到寄存器被复用V次（在分块矩阵中按照长度V进行了二次分块计算）![image.png](https://pics.zhouxin.space/202407261448550.png?x-oss-process=image/quality,q_90/format,webp)各线程读取数据到共享内存的过程为：
+上述代码从全部内存到共享内存的加载过程被复用L次（计算每个分块矩阵都要读取L次AB的行列向量），从共享内存到寄存器被复用V次（在分块矩阵中按照长度V进行了二次分块计算）![image.png](https://pics.zhouxin.space/202407261448550.png?x-oss-process=image/quality,q_90/format,webp)各线程读取数据到共享内存的过程为（以`sA[:, :] = A[k : k + S, yblock * L : yblock * L + L]`为例)：
 
 ```
-sA[:, :] = A[k : k + S, yblock * L : yblock * L + L];
-
-
 int nthreads = blockDim.y * blockDim.x;
 int tid = threadIdx.y * blockDim.x + threadIdx.x;
 for(int j = 0; j < L * S / nthreads; ++j) {
