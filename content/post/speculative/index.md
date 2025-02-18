@@ -11,6 +11,7 @@ categories : [
     "Research"
 ]
 math: true
+slug: "speculative"
 ---
 
 ## SpecInfer

@@ -10,6 +10,7 @@ categories : [
     "Research",
 ]
 math: true
+slug: "datalogmtl"
 ---
 
 

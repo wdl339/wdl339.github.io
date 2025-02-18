@@ -11,6 +11,7 @@ categories : [
     "Tech"
 ]
 math: true
+slug: "mlc-llm"
 ---
 
 ## 前言

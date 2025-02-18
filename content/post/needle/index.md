@@ -13,6 +13,7 @@ categories : [
     "Project"
 ]
 math: true
+slug: "needle"
 ---
 
 (内容持续更新中)

@@ -12,6 +12,7 @@ categories : [
     "SelfStudy"
 ]
 math: true
+slug: "dlsys-course"
 ---
 
 ## 前言

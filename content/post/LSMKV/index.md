@@ -13,6 +13,7 @@ categories : [
     "Project"
 ]
 math: true
+slug: "lsmkv"
 ---
 
 

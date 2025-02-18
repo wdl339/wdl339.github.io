@@ -11,6 +11,7 @@ categories : [
     "Study"
 ]
 math: true
+slug: "algorithms"
 ---
 
 

@@ -12,6 +12,7 @@ categories : [
     "Study"
 ]
 math: true
+slug: "ads"
 ---
 
 ## 写在最前

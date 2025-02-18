@@ -12,6 +12,7 @@ categories : [
     "Research"
 ]
 math: true
+slug: "powerinfer"
 ---
 
 

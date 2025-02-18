@@ -10,6 +10,7 @@ categories : [
     "SelfStudy"
 ]
 math: true
+slug: "missing-semester"
 ---
 
 ## 前言

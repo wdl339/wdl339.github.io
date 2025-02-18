@@ -12,6 +12,7 @@ categories : [
     "Project"
 ]
 math: true
+slug: "chfs"
 ---
 
 
