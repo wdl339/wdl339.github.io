@@ -1,8 +1,8 @@
 ---
 author : "wdl"
-title : "不联网 在手机本地就能用的大模型？MLC LLM端侧部署LLM指南"
+title : "不联网 在手机本地就能用的大模型？MLC LLM 端侧部署 LLM 指南"
 date : "2024-07-29"
-description : "MLC LLM端侧部署LLM"
+description : "MLC LLM 端侧部署 LLM"
 tags : [
     "AI",
     "LLM"
