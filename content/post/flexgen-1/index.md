@@ -901,6 +901,66 @@ def llama_output_embed(self, inputs, w_ln, w_token, eps, donate, do_sample, temp
 
 
 
+## 参数量分析
+
+模型权重占用（按 FP16 算，一个数占两个 bytes）：
+
+```python
+def model_bytes(self):
+    h = self.input_dim
+    intermediate = self.intermediate_size
+    return 2 * (
+            # input
+            self.vocab_size * h +
+            self.num_hidden_layers * (
+                # self-attention
+                2 * h * h + 2 * h * h / (self.n_head / self.num_key_value_heads) + 
+                # mlp
+                3 * h * intermediate +
+                # layer norm
+                2 * h
+            ) +
+            # output
+            h + self.vocab_size * h
+    	)
+```
+
+KVCache 占用：
+
+```python
+def cache_bytes(self, batch_size, seq_len):
+    return 2 * batch_size * seq_len * self.input_dim * self.num_hidden_layers * 2
+```
+
+经典 [b, s, h]，最后乘2当然是因为 K 和 V 一样占用。
+
+中间结果占用，也是 [b, s, h]：
+
+```python
+def hidden_bytes(self, batch_size, seq_len):
+    return 2 * batch_size * seq_len * self.input_dim
+```
+
+对于 llama 3.1 8b instruct 模型，以上变量的取值为：
+
+- vocab_size = 128256
+- input_dim (h) = 4096
+- num_hidden_layers = 32
+- n_head = 32
+- num_key_value_heads = 8
+- intermediate_size = 14336
+
+对于 llama 3.2 3b instruct 模型，以上变量的取值为：
+
+- vocab_size = 128256
+- input_dim (h) = 3072
+- num_hidden_layers = 28
+- n_head = 24
+- num_key_value_heads = 8
+- intermediate_size = 8192
+
+
+
 ## 附录
 
 Transformer 模型结构图：
