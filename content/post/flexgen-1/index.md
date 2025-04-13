@@ -259,7 +259,7 @@ $$
 $$
 
 $$
-\operatorname{MHA}(Q,K,V)=\operatorname{Concat}\left(\operatorname{head}_{1}, \operatorname{head}_{2}, \ldots, \operatorname{head}_{h}\right)
+\operatorname{MHA}(Q,K,V)= \operatorname{Concat} (\operatorname{head}_1, \operatorname{head}_2, \ldots, \operatorname{head}_h)
 $$
 
 $$
