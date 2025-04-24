@@ -23,8 +23,9 @@ slug: "llm-deploy"
 参考资料：
 
 1. [DeepSeek-R1-Distill-Llama-70B-模型库-ModelZoo-昇腾社区](https://www.hiascend.com/software/modelzoo/models/detail/ee3f9897743a4341b43710f8d204733a)
-2. [非root用户安装git-lfs - 知乎](https://zhuanlan.zhihu.com/p/691699741)
-3. [mindie](https://www.hiascend.com/developer/ascendhub/detail/af85b724a7e5469ebd7ea13c3439d48f)
+2. [功能介绍-MindIE Benchmark-MindIE Service Tools-MindIE Service组件-MindIE Service开发指南-服务化集成部署-MindIE1.0.0开发文档-昇腾社区](https://www.hiascend.com/document/detail/zh/mindie/100/mindieservice/servicedev/mindie_service0150.html)
+3. [非root用户安装git-lfs - 知乎](https://zhuanlan.zhihu.com/p/691699741)
+4. [mindie](https://www.hiascend.com/developer/ascendhub/detail/af85b724a7e5469ebd7ea13c3439d48f)
 
 
 
@@ -206,7 +207,7 @@ docker rm -it deepseek-r1-distill-llama-70b
 
 
 
-## 测试
+## 简单测试
 
 对话测试
 
@@ -299,7 +300,7 @@ vim /usr/local/Ascend/mindie/latest/mindie-service/conf/config.json
 
 ```
 cd /usr/local/Ascend/mindie/latest/mindie-service/bin
-chmod 750 /root/DeepSeek-R1-Distill-Llama-70B
+chmod 750 /root/DeepSeek-R1-Distill-Llama-70B/config.json
 nohup ./mindieservice_daemon > mindie-log 2>&1 &
 ```
 
@@ -338,3 +339,49 @@ curl 127.0.0.1:1339/v1/chat/completions ...
 ```
 ps aux | grep mindieservice_daemon | grep -v grep | awk '{print $2}' | xargs kill
 ```
+
+
+
+## 性能测试
+
+测试信息：
+
+- 测试工具：[功能介绍-MindIE Benchmark-MindIE Service Tools-MindIE Service组件-MindIE Service开发指南-服务化集成部署-MindIE1.0.0开发文档-昇腾社区](https://www.hiascend.com/document/detail/zh/mindie/100/mindieservice/servicedev/mindie_service0150.html)
+- 卡数统一设置4
+- 数据集：合成数据（synthetic）
+- 模式：Client
+
+在进行 Client 模式测试之前，需要先进行至服务化推理 “拉起服务化” 前的步骤。不过如果是性能测试的话，服务化推理的配置文件其实只要改模型路径（modelWeightPath）和 httpsEnabled 就行了，剩下都可以原封不动。
+
+进入 docker 中：
+
+```
+pip show mindiebenchmark
+pip show mindieclient
+```
+
+结果显示路径均在：/usr/local/lib/python3.11/site-packages。修改文件权限：
+
+```
+chmod 640 /usr/local/lib/python3.11/site-packages/mindiebenchmark/config/config.json
+chmod 640 /usr/local/lib/python3.11/site-packages/mindiebenchmark/config/synthetic_config.json
+```
+
+配置环境变量：
+
+```
+source /usr/local/Ascend/ascend-toolkit/set_env.sh     # CANN
+source /usr/local/Ascend/nnal/atb/set_env.sh           # ATB
+source /usr/local/Ascend/llm_model/set_env.sh          # ATB Models (may be failed?)
+source /usr/local/Ascend/mindie/set_env.sh             # MindIE
+```
+
+运行指令：
+
+```
+benchmark --DatasetType "synthetic" --ModelName llama --ModelPath "/root/DeepSeek-R1-Distill-Llama-70B" --TestType vllm_client --Http http://127.0.0.1:1025 --ManagementHttp http://127.0.0.2:1026 --Concurrency 1 --MaxOutputLen 2048 --TaskKind stream --Tokenizer True --SyntheticConfigPath /usr/local/lib/python3.11/site-packages/mindiebenchmark/config/synthetic_config.json        
+```
+
+运行结果：
+
+![](index.assets/image-20250423220812113.png)
