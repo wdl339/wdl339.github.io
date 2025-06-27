@@ -5,7 +5,7 @@ date : "2025-01-25"
 description : "SJTU软件工程《计算机系统工程》课程大作业，IPADS金课！"
 tags : [
     "System",
-    "Lab（大作业）"
+    "大作业"
 ]
 categories : [
     "Study",

@@ -6,7 +6,7 @@ description : "SJTU软件工程《高级数据结构》课程大作业，第一�
 tags : [
     "System",
     "算法",
-    "Lab（大作业）"
+    "大作业"
 ]
 categories : [
     "Study",
