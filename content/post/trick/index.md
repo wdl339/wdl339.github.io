@@ -98,7 +98,7 @@ scp -r xxx:path yyy:path
 rsync -avzP src dst
 ```
 
-![image-20250619182739859](实用代码小技巧.assets/image-20250619182739859.png)
+![image-20250619182739859](index.assets/image-20250619182739859.png)
 
 **-z**：在传输过程中对数据进行压缩
 
@@ -327,7 +327,7 @@ coredumpctl gdb
 
 ### llama.cpp 算子
 
-![image-20250617134214788](实用代码小技巧.assets/image-20250617134214788.png)
+![image-20250617134214788](index.assets/image-20250617134214788.png)
 
 
 
@@ -341,7 +341,7 @@ coredumpctl gdb
 
 还卡就没别的办法了，只能设置里 disable
 
-![image-20250620181402961](实用代码小技巧.assets/image-20250620181402961.png)
+![image-20250620181402961](index.assets/image-20250620181402961.png)
 
 
 
@@ -518,6 +518,18 @@ fclose(f);
 | **"r+"** | **读写更新** | **打开失败** (返回 NULL) | 不清空内容，指针在文件**开头**                     |
 | **"w+"** | **写读更新** | **创建新文件**           | **清空内容** (截断为0)，指针在文件**开头**         |
 | **"a+"** | **追加读写** | **创建新文件**           | 不清空内容，初始**读指针**在开头，**写指针**在末尾 |
+
+fopen 只接受 char* 文件名，方法有如下几种：
+
+```
+# std::string
+std::string filename = "logits_dump_" + std::to_string(gen_len) + ".txt";
+FILE *f = fopen(filename.c_str(), "w");
+
+# only C
+char filename[256];
+snprintf(filename, sizeof(filename), "logits_dump_%lld.txt", gen_len);
+```
 
 #### Python
 
