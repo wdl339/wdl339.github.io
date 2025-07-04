@@ -21,11 +21,21 @@ slug: "trick"
 uname -m
 ```
 
-或者
+### 查看CPU
 
 ```
 lscpu
 ```
+
+**关键信息**:
+
+- Architecture: 架构，如 x86_64。
+- CPU(s): 总逻辑核心数。
+- Socket(s): CPU 插槽数（物理 CPU 数量）。
+- Core(s) per socket: 每个物理 CPU 的核心数。
+- Model name: CPU 型号，例如 Intel(R) Xeon(R) Gold 6248R。
+- CPU max MHz: 最大睿频 (Turbo Boost) 频率。
+- Flags: CPU 支持的指令集
 
 ### 设置环境变量
 
@@ -74,13 +84,38 @@ source ENV_DIR/bin/activate
 deactivate
 ```
 
+### Conda
+
+![image-20250702155235670](index.assets/image-20250702155235670.png)
+
+注意：conda create 的时候指定 python 版本，可以避免出现 error: externally-managed-environment
+
 ### 清华源
 
 ```
 pip3 install numpy -i https://pypi.tuna.tsinghua.edu.cn/simple
 ```
 
+```
+conda config --add channels https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/free/
+conda config --add channels https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge 
+conda config --add channels https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/msys2/
+```
 
+### 挂载新硬盘
+
+```
+sudo fdisk -l	# 查看设备名
+sudo mkdir /mnt/newdisk
+sudo mount /dev/sdb1 /mnt/newdisk
+df -h 	# 检查挂载情况
+```
+
+设置开机自动挂载：编辑 /etc/fstab 文件，添加一行：
+
+```
+/dev/sdb1    /mnt/newdisk    ext4    defaults    0 
+```
 
 
 
@@ -561,3 +596,46 @@ with open("data.bin", "rb") as f:
 
 
 
+## LLM
+
+### 瓶颈计算
+
+- **计算受限时间 (T_compute)** = 总计算量 /  峰值计算能力 (FLOPS)
+- **内存受限时间 (T_memory)** = 总内存访问量 /  内存带宽 (Bytes/s)
+
+**瓶颈判断规则**：如果 T_memory > T_compute，那么该操作就是 **内存受限** 的。
+
+对 CPU 来说：
+
+理论 GFLOPS = (CPU 核心数) * (CPU 频率 GHz) * (每个周期能执行的指令数)
+
+测内存带宽：
+
+```
+# 下载源码
+wget https://www.cs.virginia.edu/stream/FTP/Code/stream.c
+
+# -fopenmp: 开启 OpenMP 支持，利用所有 CPU 核心去访问内存，这才能测出最大带宽
+# -DSTREAM_ARRAY_SIZE: 设置一个足够大的数组，必须远大于你所有 CPU Cache 的总和，以确保测试的是内存而非缓存。例如设置为 8GB (2^33 bytes)
+gcc -O3 -fopenmp -DSTREAM_ARRAY_SIZE=8000000000 stream.c -o stream_test
+
+export OMP_NUM_THREADS=$(nproc)
+./stream_test
+```
+
+输出结果：
+
+```
+-------------------------------------------------------------
+Function    Best Rate MB/s  Avg time     Min time     Max time
+Copy:           125331.4     0.102223     0.101890     0.102802
+Scale:          125430.2     0.102196     0.101810     0.102555
+Add:            139682.4     0.114755     0.114545     0.114947
+Triad:          140348.1     0.114197     0.113999     0.114493
+-------------------------------------------------------------
+```
+
+- Copy: a(i) = b(i)，测试一次读和一次写的带宽。
+- Scale: a(i) = q * b(i)，一次读，一次写。
+- Add: a(i) = b(i) + c(i)，两次读，一次写。
+- Triad: a(i) = b(i) + q * c(i)，两次读，一次写。这是最常被引用的指标，最能代表真实应用中的内存访问模式
