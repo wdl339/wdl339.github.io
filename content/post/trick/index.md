@@ -59,6 +59,46 @@ Permissions 0664 for '/home/wdl/.ssh/id_wdl' are too open.
 chmod 600 /home/wdl/.ssh/id_wdl
 ```
 
+### ssh passphrase
+
+linux
+
+```
+eval $(ssh-agent -s)
+ssh-add ~/.ssh/id_rsa
+ssh-add -l	# 验证是否成功
+```
+
+windows：打开PowerShell
+
+```
+Start-Service ssh-agent
+ssh-add C:\Users\韦东良\.ssh\id_rsa
+```
+
+### Host key has changed
+
+ssh -v 报错：
+
+```
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@    WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!     @
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+IT IS POSSIBLE THAT SOMEONE IS DOING SOMETHING NASTY!
+Someone could be eavesdropping on you right now (man-in-the-middle attack)!
+It is also possible that a host key has just been changed.
+The fingerprint for the ED25519 key sent by the remote host is ...
+Please contact your system administrator.
+Add correct host key in C:\\Users\\.../.ssh/known_hosts to get rid of this message.
+Offending ECDSA key in C:\\Users\\.../.ssh/known_hosts:58
+Host key for 192.168.1.79 has changed and you have requested strict checking.
+Host key verification failed.
+```
+
+原因：远程主机的主机密钥（Host Key）发生了变化，而本地的 `known_hosts` 文件中记录的旧密钥与当前服务器的密钥不匹配，导致了 SSH 客户端拒绝连接
+
+解决方案：更新本地的 `known_hosts` 文件，找到并删除与 `192.168.1.79` 相关的行，重新连接
+
 ### externally-managed-environment
 
 error: externally-managed-environment
@@ -84,6 +124,50 @@ source ENV_DIR/bin/activate
 deactivate
 ```
 
+### 挂载新硬盘
+
+```
+sudo fdisk -l	# 查看设备名
+sudo mkdir /mnt/newdisk
+sudo mount /dev/sdb1 /mnt/newdisk
+df -h 	# 检查挂载情况
+```
+
+设置开机自动挂载：编辑 /etc/fstab 文件，添加一行：
+
+```
+/dev/sdb1    /mnt/newdisk    ext4    defaults    0 
+```
+
+### 添加用户
+
+```
+sudo adduser wdl
+
+
+
+```
+
+给予 sudo 权限
+
+```
+sudo usermod -aG sudo wdl
+```
+
+验证 sudo 权限
+
+```
+su - wdl
+sudo ls /root
+```
+
+删除用户
+
+```
+sudo deluser wdl
+sudo deluser --remove-home wdl	# 删除主目录与文件
+```
+
 ### Conda
 
 ![image-20250702155235670](index.assets/image-20250702155235670.png)
@@ -100,21 +184,6 @@ pip3 install numpy -i https://pypi.tuna.tsinghua.edu.cn/simple
 conda config --add channels https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/free/
 conda config --add channels https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge 
 conda config --add channels https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/msys2/
-```
-
-### 挂载新硬盘
-
-```
-sudo fdisk -l	# 查看设备名
-sudo mkdir /mnt/newdisk
-sudo mount /dev/sdb1 /mnt/newdisk
-df -h 	# 检查挂载情况
-```
-
-设置开机自动挂载：编辑 /etc/fstab 文件，添加一行：
-
-```
-/dev/sdb1    /mnt/newdisk    ext4    defaults    0 
 ```
 
 
@@ -199,6 +268,29 @@ git diff --name-only .. ..
 git submodule update --init --recursive
 ```
 
+### 临时保存工作进度
+
+场景：需要临时保存当前的工作进度，切换到另一个分支，之后再回来继续工作，但是又不希望 commit
+
+```
+git stash save "..."
+git stash pop	# 应用最近一次的储藏，并从储藏列表中删除它
+git stash apply # 不会删除
+```
+
+如果你多次使用 git stash，它会把你的修改都存成一个列表：
+
+```
+git stash list
+git stash pop stash@{1}
+```
+
+git stash 不会储藏新建的、未被 Git 跟踪的文件。如果想一起储藏需要加上 -u 参数
+
+```
+git stash save -u "..."
+```
+
 ### 本地彻底回退
 
 git log 找到希望回退到的 commit 的哈希值
@@ -207,51 +299,13 @@ git log 找到希望回退到的 commit 的哈希值
 git reset --hard <commit-hash>
 ```
 
-### 避免输入passphrase
-
-linux
-
-```
-eval $(ssh-agent -s)
-ssh-add ~/.ssh/id_rsa
-ssh-add -l	# 验证是否成功
-```
-
-windows：打开PowerShell
-
-```
-Start-Service ssh-agent
-ssh-add C:\Users\韦东良\.ssh\id_rsa
-```
-
-### Host key has changed
-
-ssh -v 报错：
-
-```
-@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-@    WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!     @
-@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-IT IS POSSIBLE THAT SOMEONE IS DOING SOMETHING NASTY!
-Someone could be eavesdropping on you right now (man-in-the-middle attack)!
-It is also possible that a host key has just been changed.
-The fingerprint for the ED25519 key sent by the remote host is ...
-Please contact your system administrator.
-Add correct host key in C:\\Users\\.../.ssh/known_hosts to get rid of this message.
-Offending ECDSA key in C:\\Users\\.../.ssh/known_hosts:58
-Host key for 192.168.1.79 has changed and you have requested strict checking.
-Host key verification failed.
-```
-
-原因：远程主机的主机密钥（Host Key）发生了变化，而本地的 `known_hosts` 文件中记录的旧密钥与当前服务器的密钥不匹配，导致了 SSH 客户端拒绝连接
-
-解决方案：更新本地的 `known_hosts` 文件，找到并删除与 `192.168.1.79` 相关的行，重新连接
-
 
 
 ## Debug
 
 ### VScode python
+
+launch.json：
 
 ```
 {
@@ -360,11 +414,38 @@ coredumpctl gdb
 
 默认会查看最近的一个core dump。gdb内用`bt`可以查看调用堆栈，用`fr N`可以去往第N层堆栈
 
-### llama.cpp 算子
+### llama.cpp 打印算子
 
-![image-20250617134214788](index.assets/image-20250617134214788.png)
+```
+ggml_barrier(params->threadpool);
 
+if (ith == 0 && strncmp(dst->name, "kq-", 3) == 0) {
+    const struct ggml_tensor *t = src1;
+    FILE *fp = NULL;
+    char file_name[100];
 
+    sprintf(file_name, "data/attention_score_%s.log", dst->name);
+    fp = fopen(file_name, "a+");
+
+    fprintf(fp, "dst->name: %s\n", dst->name);
+    fprintf(fp, "num_kv: %lld, num_tokens: %lld, num_head: %lld\n", t->ne[0], t->ne[1], t->ne[2]);
+
+    for (int i2 = 0; i2 < t->ne[2]; ++i2) {
+        fprintf(fp, "i2: %d\n", i2);
+        for (int i1 = 0; i1 < t->ne[1]; ++i1) {
+            fprintf(fp, "i1: %d\n", i1);
+            for (int i0 = 0; i0 < t->ne[0]; ++i0) {
+                fprintf(fp, "i0: %d: %f\n",
+                    i0, *((float *)((char *)t->data + i2 * t->nb[2] + i1 * t->nb[1] + i0 * t->nb[0])));
+            }
+            fprintf(fp, "\n");
+        }
+        fprintf(fp, "\n\n");
+    }
+
+    fclose(fp);
+}
+```
 
 
 
@@ -377,8 +458,6 @@ coredumpctl gdb
 还卡就没别的办法了，只能设置里 disable
 
 ![image-20250620181402961](index.assets/image-20250620181402961.png)
-
-
 
 
 
@@ -592,6 +671,16 @@ with open("data.bin", "wb") as f:
 with open("data.bin", "rb") as f:
     read_data = f.read()
     print(read_data)
+```
+
+
+
+### Python
+
+如果一个变量不存在，自动读取另一个变量
+
+```
+n_experts = self.hparams.get("num_experts", self.hparams.get("moe_num_experts"))
 ```
 
 
