@@ -143,9 +143,6 @@ df -h 	# 检查挂载情况
 
 ```
 sudo adduser wdl
-
-
-
 ```
 
 给予 sudo 权限
