@@ -73,7 +73,7 @@ windows：打开PowerShell
 
 ```
 Start-Service ssh-agent
-ssh-add C:\Users\韦东良\.ssh\id_rsa
+ssh-add C:\Users\wdl\.ssh\id_rsa
 ```
 
 ### Host key has changed
@@ -447,6 +447,12 @@ if (ith == 0 && strncmp(dst->name, "kq-", 3) == 0) {
 
 
 ## VSCode
+
+### 函数跳转
+
+[【经验分享】vscode c++ 函数无法跳转问题解决教程_vscode函数跳转插件-CSDN博客](https://blog.csdn.net/m0_64561077/article/details/140516251)
+
+[解决vscode下C/C++indelisense插件函数跳转卡顿不流畅的问题_vscode代码跳转不稳定-CSDN博客](https://blog.csdn.net/qq_39642740/article/details/139651743?utm_medium=distribute.pc_relevant.none-task-blog-2~default~baidujs_baidulandingword~default-12-139651743-blog-140516251.235^v43^pc_blog_bottom_relevance_base3&spm=1001.2101.3001.4242.7&utm_relevant_index=14)
 
 ### IntelliSense 卡顿问题
 
