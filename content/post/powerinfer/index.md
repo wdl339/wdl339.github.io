@@ -13,6 +13,7 @@ categories : [
 ]
 math: true
 slug: "powerinfer"
+draft: true
 ---
 
 

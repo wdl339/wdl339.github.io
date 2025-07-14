@@ -12,6 +12,7 @@ categories : [
 ]
 math: true
 slug: "speculative"
+draft: true
 ---
 
 ## SpecInfer

@@ -296,6 +296,16 @@ git log 找到希望回退到的 commit 的哈希值
 git reset --hard <commit-hash>
 ```
 
+### 修改分支名
+
+```
+git checkout old_branch
+git branch -m new_branch
+git push origin --delete old_branch
+git push origin new_branch
+git push --set-upstream origin new_branch
+```
+
 
 
 ## Debug

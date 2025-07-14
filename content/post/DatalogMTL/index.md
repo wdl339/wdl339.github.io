@@ -11,6 +11,7 @@ categories : [
 ]
 math: true
 slug: "datalogmtl"
+draft: true
 ---
 
 
