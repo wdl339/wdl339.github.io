@@ -1,7 +1,7 @@
 ---
 author : "wdl"
 title : "成果分享 | Goal-Driven Reasoning in DatalogMTL with Magic Sets 解读"
-date : "2024-01-10"
+date : "2025-01-10"
 description : "喜提第一篇顶会"
 tags : [
     "科研成果"
