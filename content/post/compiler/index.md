@@ -2,9 +2,8 @@
 author : "wdl"
 title : "采用LLVM IR，Tiger编译器完整实现及解析"
 date : "2025-01-16"
-description : "SJTU软件工程《编译原理与技术》课程大作业，战编译！"
+description : "SJTU SE《编译原理与技术》课程大作业，战编译！"
 tags : [
-    "编译",
     "大作业"
 ]
 categories : [
@@ -47,9 +46,9 @@ tiger允许的类型：int（如**123**）， string（如"**abc**"）， 数组
 
 tiger的声明：
 
-- 函数声明，如：**function func (p1:int, p2:string) = ( … )** 
-- 类型声明，如：**type mytype = {x: int, y: string}** 
-- 变量声明，如：**var row := mytype [10] of 0** 
+- 函数声明，如：**function func (p1:int, p2:string) = ( … )**
+- 类型声明，如：**type mytype = {x: int, y: string}**
+- 变量声明，如：**var row := mytype [10] of 0**
 
 tiger程序是由表达式组成的，表达式的类型有：
 
@@ -58,7 +57,7 @@ tiger程序是由表达式组成的，表达式的类型有：
 - 变量表达式，如：**a**
 - 列表表达式，如：**123 ; “abc”**
 - if 表达式：**if … then … （else …）**
-- for 表达式，如：**for i:=1 to 10 do …** 
+- for 表达式，如：**for i:=1 to 10 do …**
 - while 表达式，如：**while (a>0) do …**
 - break 表达式：**break**
 - let 表达式：**let … in … end**
@@ -93,7 +92,7 @@ make gradelab6
 
 ## 词法分析
 
-运用 **flexc++** 来完成词法分析。词法分析（lexical analysis）是将输入分解成一个个独立的词法符号，即 “单词符号”（token）。flexc++的[语法规则](https://fbb-git.github.io/flexcpp/manual/flexc++.html)。 
+运用 **flexc++** 来完成词法分析。词法分析（lexical analysis）是将输入分解成一个个独立的词法符号，即 “单词符号”（token）。flexc++的[语法规则](https://fbb-git.github.io/flexcpp/manual/flexc++.html)。
 
 > `flexc++` 是一个用于生成词法分析器的工具，类似于传统的 `flex` 工具，但它生成的是 C++ 代码。`flexc++` 读取词法规则文件，生成多个文件，这些文件包含一个Scanner类的声明和实现。Scanner类的成员函数 `lex` 用于分析输入文本，查找与正则表达式匹配的部分，并执行关联的 C++ 代码。
 
@@ -159,7 +158,7 @@ make gradelab6
 
   \" {
     adjustStr();
-    begin(StartCondition_::INITIAL); 
+    begin(StartCondition_::INITIAL);
     setMatched(string_buf_);
     string_buf_.clear();
     return Parser::STRING;
@@ -289,7 +288,7 @@ make gradelab6
 %%
 program: exp {absyn_tree_ = std::make_unique<absyn::AbsynTree>($1); };
 ...
-    
+
 /* 对应于：class VarDec : public Dec {
             public:
               sym::Symbol *var_;
@@ -372,10 +371,10 @@ exp: ...
 #### 对表达式的检查
 
 1. 下面的表达式无需检查：
-   - 整数表达式IntExp  
-   - 字符串表达式StringExp 
-   - nil表达式NilExp   
-   - 变量表达式VarExp   
+   - 整数表达式IntExp
+   - 字符串表达式StringExp
+   - nil表达式NilExp
+   - 变量表达式VarExp
 2. 函数调用CallExp：如果在vEnv里查不到函数名或者它不是FuncEntry则报错：函数未定义。然后逐个检查形参和实参是否匹配，遇到不匹配则报错。在遍历形参链表的时候，可能遇到链表空或有剩余的情况，此时分别报告实参过多或不足的错误。
 3. 算术表达式OpExp:   如果是运算符，要求左右均为int类型。如果是比较，左右中任一个不能为void类型；左右不能全为nil，可以一个为nil一个为record类型；其它情况下必须左右类型完全一致（只要一个IsSameType就能搞定这些）。
 4. 记录表达式RecordExp：先在tEnv中查找类型是否存在，若否或非记录类型报告未知记录类型错误。然后逐个检查记录表达式和记录类型域的名字是否相同，逐个检查记录表达式和记录类型域的类型是否匹配......（与CallExp类似）
@@ -395,7 +394,7 @@ exp: ...
    - 检查是否有重复的声明
    - 检查是否与标准函数冲突
    - 检查函数返回值，有返回值则检查类型是否存在
-   - 无误后，将函数作为FuncEntry添加到vEnv中  
+   - 无误后，将函数作为FuncEntry添加到vEnv中
 
    然后再重新扫描一遍声明，第二轮检查:
 
@@ -404,7 +403,7 @@ exp: ...
    - 递归地检查函数体，检查函数体的返回类型是否和声明部分匹配
    - 退出子表
 
-2. 变量声明VarDec：如果有显式的类型声明，检查类型存在与是否类型匹配，以及注意只有记录类型可以用nil初始化。若无显式的类型声明且初始值为nil，则报错。若无初始值，报错，因为所有的变量声明必须有初始化。如果没有以上错误，则把变量作为VarEntry添加到vEnv中。 
+2. 变量声明VarDec：如果有显式的类型声明，检查类型存在与是否类型匹配，以及注意只有记录类型可以用nil初始化。若无显式的类型声明且初始值为nil，则报错。若无初始值，报错，因为所有的变量声明必须有初始化。如果没有以上错误，则把变量作为VarEntry添加到vEnv中。
 
 3. 类型声明TypeDec：和函数声明类似，也是两轮。
 
@@ -620,7 +619,7 @@ public:
     auto addr = ir_builder->CreateIntToPtr(addr_int, llvm::PointerType::get(val->getType(), 0));
     ir_builder->CreateStore(val, addr);
   }
-  
+
   llvm::Value* getValue(llvm::Type *type, llvm::Value *sp, std::string name = "") const {
     auto addr_int = ToLLVMVal(sp);
     auto addr = ir_builder->CreateIntToPtr(addr_int, llvm::PointerType::get(type, 0), name);
@@ -647,7 +646,7 @@ public:
   void storeValue(llvm::Value *val, llvm::Value *sp) const {
     ir_builder->CreateStore(val, value);
   }
-  
+
   llvm::Value* getValue(llvm::Type *type, llvm::Value *sp, std::string name = "") const {
     return value;
   }
@@ -679,8 +678,8 @@ void AllocOutgoSpace(int size) override {
     	outgo_size_ = size;
 }
 
-int calculateActualFramesize() { 
-    return (-offset_ + outgo_size_) + 8; 
+int calculateActualFramesize() {
+    return (-offset_ + outgo_size_) + 8;
 }
 ```
 
@@ -775,14 +774,14 @@ tr::ValAndTy *WhileExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv, tr::Leve
 
   auto test_val_ty = test_->Translate(venv, tenv, level, errormsg);
   auto test_val = ir_builder->CreateIntCast(test_val_ty->val_, llvm::Type::getInt1Ty(ir_builder->getContext()), true);
-  
+
   ir_builder->CreateCondBr(test_val, body_bb, next_bb);
   ir_builder->SetInsertPoint(body_bb);
 
   loop_stack.push(next_bb);
   auto body_val_ty = body_->Translate(venv, tenv, level, errormsg);
   loop_stack.pop();
-  
+
   ir_builder->CreateBr(test_bb);
 
   ir_builder->SetInsertPoint(next_bb);
@@ -807,7 +806,7 @@ tr::ValAndTy *SimpleVar::Translate(env::VEnvPtr venv, env::TEnvPtr tenv, tr::Lev
       llvm::Value *val = var_access->getValue(var_entry->ty_->GetLLVMType(), tmp_sp, level->frame_->name_->Name() + "_" + this->sym_->Name() + "_ptr");
       return new tr::ValAndTy(val, var_entry->ty_->ActualTy());
     }
-  } 
+  }
   errormsg->Error(this->pos_, "Variable " + sym_->Name() + " not found");
   return new tr::ValAndTy(nullptr, new type::NilTy());
 }
@@ -836,7 +835,7 @@ void VarDec::Translate(env::VEnvPtr venv, env::TEnvPtr tenv, tr::Level *level, e
   auto init_val_ty = init_->Translate(venv, tenv, level, errormsg);
   Load_if_pointer_but_not_struct_and_string(init_val_ty->val_, nullptr);
   // 1. example: var key:= list[left]
-  // 2. is_struct == true, example: 
+  // 2. is_struct == true, example:
   //    type t = {a:int, b:int}
   //    var x := t{a = 3, b = 4}
   // 3. for "var col := intArray [ N ] of 0" ?
@@ -1033,7 +1032,7 @@ void CodeGen::InstrSel(assem::InstrList *instr_list, llvm::Instruction &inst, st
             }
             break;
         }
-            
+
         ...
     }
 }
@@ -1118,7 +1117,7 @@ void FlowGraphFactory::AssemFlowGraph() {
           flowgraph_->AddEdge(this_node, jump_node);
         }
       }
-    } 
+    }
   }
 }
 ```

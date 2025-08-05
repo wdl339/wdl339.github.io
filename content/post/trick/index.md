@@ -4,7 +4,7 @@ title : "实用代码小技巧"
 date : "2025-06-27"
 description : "即查即用"
 tags : [
-    "写代码"
+    "实用技巧"
 ]
 categories : [
     "SelfStudy"
@@ -136,7 +136,7 @@ df -h 	# 检查挂载情况
 设置开机自动挂载：编辑 /etc/fstab 文件，添加一行：
 
 ```
-/dev/sdb1    /mnt/newdisk    ext4    defaults    0 
+/dev/sdb1    /mnt/newdisk    ext4    defaults    0
 ```
 
 ### 添加用户
@@ -179,7 +179,7 @@ pip3 install numpy -i https://pypi.tuna.tsinghua.edu.cn/simple
 
 ```
 conda config --add channels https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/free/
-conda config --add channels https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge 
+conda config --add channels https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge
 conda config --add channels https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/msys2/
 ```
 
@@ -336,17 +336,17 @@ launch.json：
             "type": "debugpy",
             "request": "launch",
             "python": "/disk2/wdl/miniconda3/envs/infinigen/bin/python",
-            "program": "flex_llama3.py", 
+            "program": "flex_llama3.py",
             "args": [
                 "--model", "/disk2/wdl/llama-3.2-3b-instruct",
                 "--path", "/disk2/wdl/FlexGen/llama_weights",
-                "--offload-dir", "/disk2/wdl/FlexGen/offload_dir", 
+                "--offload-dir", "/disk2/wdl/FlexGen/offload_dir",
                 "--prompt-len", "7",
                 "--gen-len", "10",
                 "--gpu-batch-size", "1",
                 "--num-gpu-batches", "2",
                 "--prefill-batch-size", "512",
-                "--percent", "100", "0", "0", "0", "100", "0", 
+                "--percent", "100", "0", "0", "0", "100", "0",
                 "--attn-sparsity", "0.1",
                 "--compress-weight",
             ],
@@ -371,9 +371,9 @@ launch.json：
             "args": [
                 "-t", "4",
                 "-no-cnv",
-                "--temp", "0.6", 
-                "--top-k", "20", 
-                "--top-p", "0.95", 
+                "--temp", "0.6",
+                "--top-k", "20",
+                "--top-p", "0.95",
                 "--no-warmup",
                 "-n", "256",
                 "--samplers", "'temperature;top_k;top_p'",
@@ -586,7 +586,7 @@ std::string get_log_filename(size_t layer_id, size_t head_id) {
 
 fread 方法：
 
-"w" 写, "r" 读, "a" 追加, "b" 二进制 
+"w" 写, "r" 读, "a" 追加, "b" 二进制
 
 ```
 #include <cstdio>
@@ -621,19 +621,19 @@ fget 方法：
 FILE *f = fopen("log.txt", "r"); // "r" = read (文本读)
 if (f) {
     char line[256]; // 定义一个行缓冲区
-    
+
     while (fgets(line, sizeof(line), f) != NULL) {
         printf("%s", line);
     }
-    
-    fclose(f); 
+
+    fclose(f);
 }
 ```
 
 fprintf 方法：读取格式化文本
 
 ```
-FILE *f = fopen("config.txt", "r"); 
+FILE *f = fopen("config.txt", "r");
 if (f == NULL) {
     perror("Error opening file");
     return -1;
@@ -643,12 +643,12 @@ int layer_id, head_id;
 fscanf(f, "%d %d", &layer_id, &head_id);
 printf("Layer: %d, Head: %d\n", layer_id, head_id);
 
-FILE *f = fopen("config.txt", "w"); 
+FILE *f = fopen("config.txt", "w");
 
 fprintf(f, "Log Entry:\n");
 fprintf(f, "Processed Layer %d, Head %d.\n", layer_id, head_id);
 
-fclose(f); 
+fclose(f);
 ```
 
 同时进行读和写，应该使用以下三种带 + 的模式之一：
@@ -687,7 +687,7 @@ with open("log.txt", "r", encoding="utf-8") as f:
     # 方式二：逐行读取
     for line in f:
         print(line.strip()) # strip() 去除行尾换行符
-        
+
 # 写二进制文件
 data = b'\xDE\xAD\xBE\xEF'
 with open("data.bin", "wb") as f:

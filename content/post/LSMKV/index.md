@@ -2,7 +2,7 @@
 author : "wdl"
 title : "采用键值分离，LSM KV 键值存储系统项目总结"
 date : "2024-06-30"
-description : "SJTU软件工程《高级数据结构》课程大作业，第一个大型项目！"
+description : "SJTU SE《高级数据结构》课程大作业"
 tags : [
     "System",
     "算法",
@@ -59,7 +59,7 @@ Key 采用分层的方式进行存储，每一层中包括多个文件，每个�
 
 1. Header 用于存放元数据，按顺序分别为该 SSTable 的时间戳（无符号64 位整型），SSTable 中键值对的数量（无符号 64 位整型），键最小值和最大值（无符号 64 位整型），共占用 32 B。
 
-2) Bloom Filter 用来快速判断 SSTable 中是否存在某一个键值，Bloom Filter 的大小为 8 kB，hash 函数使用Murmur3，将 hash 得到的 128-bit 结果分为四个无符号 32 位整型使用。超出 Bloom Filter 长度的结果取余。 
+2) Bloom Filter 用来快速判断 SSTable 中是否存在某一个键值，Bloom Filter 的大小为 8 kB，hash 函数使用Murmur3，将 hash 得到的 128-bit 结果分为四个无符号 32 位整型使用。超出 Bloom Filter 长度的结果取余。
 
 3. <Key, Offset, Vlen>元组，用来存储有序的索引数据，包含所有的Key、Key 对应的 Value 在 vLog 文件中的偏移量 offset (无符号 64 位整数）以及值的长度（无符号 32 位整数）。
 
@@ -71,7 +71,7 @@ SSTable 以“.sst”作为拓展名，所有文件存放在数据目录中，Le
 
 SSTable 文件一旦生成，是不可变的。因此在进行修改或者删除操作时，只能在系统中新增一条相同键的记录，表示对应的修改和删除操作。因此一个 Key 在系统中可能对应多条记录，为区分它们的先后，为每个条目增加一个时间戳，又考虑到每个 SSTable 中的数据是同时被写成文件的，因此其实只需在 SSTable 的 Header 中记录当前SSTable 生成的时间戳即可。
 
-为了简化设计，在本项目中，使用SSTable 的生成序号表示时间戳：在键值存储系统被初始化/reset 之后，第一个生成的 SSTable 的时间戳为 1，第二个生成的为 2，以此类推。键值存储系统在启动时，如果没有进行初始化操作，会找到此前所生成的最后一个时间戳，才能用于下一个 SSTable 的生成。 
+为了简化设计，在本项目中，使用SSTable 的生成序号表示时间戳：在键值存储系统被初始化/reset 之后，第一个生成的 SSTable 的时间戳为 1，第二个生成的为 2，以此类推。键值存储系统在启动时，如果没有进行初始化操作，会找到此前所生成的最后一个时间戳，才能用于下一个 SSTable 的生成。
 
 到后面我们会发现，不同的SSTable可能具有相同的时间戳，这时候需要加上tag用于区分。SSTable的文件名就是用 "timestamp_tag.sst" 的形式。知道一个SSTable对应的level、 timestamp、tag，就能快速定位SSTable文件的位置。系统需要保存每个timestamp对应的最大tag，用于给文件取名。
 
@@ -84,9 +84,9 @@ SSTable 是保存在磁盘中的，而磁盘的读写速度比内存要慢几个
 1. 系统会缓存每个SSTable的Info：
 
    ```
-   std::map<uint64_t, std::map<std::pair<uint64_t, uint64_t>, Info>> ssInfo; 
+   std::map<uint64_t, std::map<std::pair<uint64_t, uint64_t>, Info>> ssInfo;
    // level, {timestamp, tag}, Info
-   
+
    struct Info{
        Header header;
        BloomFilter bloomFilter;
@@ -105,7 +105,7 @@ SSTable 是保存在磁盘中的，而磁盘的读写速度比内存要慢几个
        uint64_t tag;
        ...
    };
-   
+
    SSTable ssCache;
    LTT* ltt;
    ```
@@ -193,7 +193,7 @@ vLog 用于存储键值对的值，其中 head 为新数据 append 时的起始�
 
 4. 若产生的文件数超出 Level 1 层限定的数目，则从 Level 1 的 SSTable中，优先选择时间戳最小的若干个文件（时间戳相等选择键最小的文件），使得文件数满足层数要求，以同样的方法继续向下一层合并（若没有下一层，则新建一层）。
 
-**一些注意事项：** 
+**一些注意事项：**
 
 1. 从 Level 1 层往下的合并开始，仅需将超出的文件往下一层进行合并即可，无需合并该层所有文件。
 2. 在合并时，如果遇到相同键 K 的多条记录，通过比较时间戳来决定键 K 的最新值，时间戳大的记录被保留。
@@ -253,7 +253,7 @@ std::string KVStore::readData (uint64_t level, uint64_t time_stamp, uint64_t tag
 		ssCache = SSTable(file);
 		ltt = new LTT(level, time_stamp, tag);
 	}
-	
+
     std::string file = filePath(level, time_stamp, tag);
     std::fstream f;
     f.open(file, std::ios::in | std::ios::binary);
@@ -279,7 +279,7 @@ std::string KVStore::readData (uint64_t level, uint64_t time_stamp, uint64_t tag
 
 ```
 lseek(fd, offset, SEEK_SET);
-    
+
 uint8_t magic;
 read(fd, &magic, sizeof(magic));
 ...
@@ -296,11 +296,11 @@ read(fd, &value[0], len);
 
 由于不能修改 SSTable 中的内容，需要一种特殊的方式处理键值对的删除操作。首先查找键 Key，如果未找到则不需要进行删除操作，返回 false；若搜索到记录，则在MemTable 中插入一条特殊的“删除标记”，其键为 Key ，值为特殊字串“\~DELETED\~”（默认不会出现以此为值的正常记录），表示键 Key 被删除了，并返回 true。当读操作读到了一个“删除标记”时，说明该 Key 已被删除。
 
-在使用 MemTable 生成 SSTable 以及 vLog 时，只需在 SSTable 中将该 Key 对应的 vlen 设为 0 而不需要写 vLog ，在 GET 操作时，即可通过 vlen 是否为 0 来判断是否为删除操作。在执行合并操作时，根据时间戳将相同键的多个记录进行合并，通常不需要对 vlen 为 0 的记录作特殊处理。唯一一个例外，是在最后一层中合并时，所有 vlen 为 0 的记录会被丢弃。 
+在使用 MemTable 生成 SSTable 以及 vLog 时，只需在 SSTable 中将该 Key 对应的 vlen 设为 0 而不需要写 vLog ，在 GET 操作时，即可通过 vlen 是否为 0 来判断是否为删除操作。在执行合并操作时，根据时间戳将相同键的多个记录进行合并，通常不需要对 vlen 为 0 的记录作特殊处理。唯一一个例外，是在最后一层中合并时，所有 vlen 为 0 的记录会被丢弃。
 
- 
 
-### SCAN(K1, K2) 
+
+### SCAN(K1, K2)
 
 SCAN 操作需要返回一个 std::list<K, V>，其中按递增顺序存放了所有键在 K1 和 K2 （左右均包含）的键值对。扫描 MemTable 和所有 SSTable 中的数据即可。先遍历找到有哪些在范围内的key，以及它们最新数据的位置（LTTP定位：level, timestamp, tag, pos），然后一一到vLog中获取值。
 
@@ -338,7 +338,7 @@ SCAN 操作需要返回一个 std::list<K, V>，其中按递增顺序存放了�
 
 GC 函数的主要包含以下参数：
 
-1. chunk_size ：本轮 GC 扫描的 vLog 大小（严格不小于，例如chunk_size = 1024 Byte，而 vLog 头部的 10 个 entry 加起来大小为 1023 Byte，则需要再多扫描一个entry）。 
+1. chunk_size ：本轮 GC 扫描的 vLog 大小（严格不小于，例如chunk_size = 1024 Byte，而 vLog 头部的 10 个 entry 加起来大小为 1023 Byte，则需要再多扫描一个entry）。
 
 GC 的流程包括以下几步：
 
@@ -346,7 +346,7 @@ GC 的流程包括以下几步：
 
 2. 如果是，表明该 vLog entry 仍然记录的是最新数据，则将该 vLog entry 重新插入到 MemTable 中。
 3. 如果不是，表明该 vLog entry 记录的是过期的数据，不做处理。
-4. 扫描完成后，不论此时 MemTable 是否可以容纳更多的数据（即继续插入新数据后仍然可以使得转化成的 SSTable 的大小满足要求），只要 MemTable 中含有数据，就需要主动将 MemTable 写入 SStable 和 vLog（类似于 MemTable 满了时的操作）。扫描到的未过期的数据会在这一步重新 append 到 vLog 头部。 
+4. 扫描完成后，不论此时 MemTable 是否可以容纳更多的数据（即继续插入新数据后仍然可以使得转化成的 SSTable 的大小满足要求），只要 MemTable 中含有数据，就需要主动将 MemTable 写入 SStable 和 vLog（类似于 MemTable 满了时的操作）。扫描到的未过期的数据会在这一步重新 append 到 vLog 头部。
 5. 使用 de_alloc_file() 帮助函数对扫描过的 vLog 文件区域打洞。
 
 > fallocate 函数可以用于释放文件中的部分空间。被释放的空间称为“空洞”区域。空洞不会实际占用磁盘空间，在被读取时会返回全零（注意读取文件的时候，读取的是字节，因此读到的全是 0x00）。在成功调用fallocate 之后，虽然文件的实际大小发生了改变，但通过 tellg() 等方式得到的文件大小不会发生改变。
@@ -377,7 +377,7 @@ void KVStore::gc(uint64_t chunk_size)
 
 ## 测试和瓶颈分析
 
-### 正确性测试 
+### 正确性测试
 
 正确性测试包括以下测试：
 
@@ -391,7 +391,7 @@ void KVStore::gc(uint64_t chunk_size)
 
 
 
-### 性能测试 
+### 性能测试
 
 #### 常规分析
 

@@ -1,8 +1,8 @@
 ---
 author : "wdl"
-title : "成果分享 | Goal-Driven Reasoning in DatalogMTL with Magic Sets 解读"
+title : "工作介绍 | Goal-Driven Reasoning in DatalogMTL with Magic Sets"
 date : "2025-01-10"
-description : "喜提第一篇顶会"
+description : "AAAI 2025 接收"
 tags : [
     "科研成果"
 ]
@@ -72,7 +72,7 @@ A(1), A(2), A(3), A(4), A(5), A(6), A(7)...
 这里fact也可以看作是没有body的rule也就是
 
 ```
-edge(1,3) :- 
+edge(1,3) :-
 edge(3,5) :-
 ...
 ```

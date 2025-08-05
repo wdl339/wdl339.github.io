@@ -1,8 +1,8 @@
 ---
 author : "wdl"
-title : "SJTU软件工程《算法设计》复习笔记"
+title : "SJTU SE《算法设计》复习笔记"
 date : "2025-01-12"
-description : "计算机科学之基石 必备技能"
+description : "算法设计"
 tags : [
     "算法",
     "期末"
@@ -19,7 +19,7 @@ slug: "algorithms"
 
 ### **Big** O **notation**
 
-#### **bounds** 
+#### **bounds**
 
 - f(n) is O(g(n)) if there exist constants c > 0 and n0 ≥ 0 such that 0 ≤ f(n) ≤ c · g(n) for all n ≥ n0.
 - f(n) is Ω(g(n)) if there exist constants c > 0 and n0 ≥ 0 such that f(n) ≥ c · g(n) ≥ 0 for all n ≥ n0.
@@ -95,13 +95,13 @@ T(n) = 2T(n/2) + O(n)， 复杂度O(nlog n)
 
 如果只减少一个，T(n)=T(n−1)+O(n)，O(n^2)
 
-v is good if it lies within the 25th to 75th percentile of the array that it is chosen from. 
+v is good if it lies within the 25th to 75th percentile of the array that it is chosen from.
 
 有50%概率选到好的v，至少需要选两次（几何分布期望E(X) = 1/p）
 
 选到好的v之后至少减少1/4长度（因为25th to 75th）
 
-T(n) ≤ T(3n/4) + O(n) = O(n) 
+T(n) ≤ T(3n/4) + O(n) = O(n)
 
 
 
@@ -459,10 +459,10 @@ n bits, n = log N
 - times 2: $O(1)$【左移1位】
 - division (modular): $O(n^2)$
 - Modular add:  $O(n)$  【结果大于N则减N】
-- M mul:  $O(n^2)$【结果除以N】 
-- M exp:  $O(n^3)$ 【最多n次循环调用（每次将指数除以2），每次一个乘法】 
+- M mul:  $O(n^2)$【结果除以N】
+- M exp:  $O(n^3)$ 【最多n次循环调用（每次将指数除以2），每次一个乘法】
 - M gcd:  $O(n^3)$【Euclid算法，2n次循环调用，每次一个mod】
-- M inv:  $O(n^3)$【扩展Euclid算法】 
+- M inv:  $O(n^3)$【扩展Euclid算法】
 - M div:  $O(n^3)$【$b/a\mod N = b  a^{-1}$】
 
 
@@ -522,7 +522,7 @@ return(EUCLID(y, x mod y));
 
 **Lemma** If a ≥ b ≥ 0, then a mod b < a/2
 
-**Proof.** 
+**Proof.**
 
 - if b ≤ a/2, a mod b < b ≤ a/2;
 - if b > a/2, a mod b = a − b < a/2
@@ -547,7 +547,7 @@ We say x is the multiplicative inverse（乘法逆元） of a mod N, if ax ≡ 1
 
 **Lemma** If gcd(a, N) > 1（a n不互素）, then ax /≡ 1 mod N（逆元不存在）.
 
-**Proof.** 
+**Proof.**
 
 ax mod N = ax + kN,  gcd(a, N) 整除 ax mod N。所以当gcd(a, N) > 1时，将有ax /≡ 1 mod N。
 
@@ -637,7 +637,7 @@ A **cycle** in a directed graph is a circular path v0 → v1 → v2 → . . . vk
 
 **Lemma.** A directed graph has a cycle if and only if its depth-first search reveals（探测到） a back edge.
 
-**Proof.** 
+**Proof.**
 
 - 充分性：(u,v)是回边，则存在包含该边以及从v到u路径的环
 - 必要性：如果含有环 v0 → v1 → v2 → . . . vk → v0，假设最先被访问的点为vi，环上其他顶点均为vi在搜索树中的后裔。边v_{i-1}→vi即为回边。
@@ -896,7 +896,7 @@ S必须足够简明且在多项式时间内可验证。
 
 2. **TSP问题（但是限定了最高预算b）**：限定预算是为了方便检验解，指数时间。
 
-3. **Euler Path**：Given a graph, find a path that contains **each edge exactly once**. 
+3. **Euler Path**：Given a graph, find a path that contains **each edge exactly once**.
 
    只要图是连通的并且除了起点终点之外所有点的度数为偶数即可，多项式时间！
 
@@ -1079,7 +1079,7 @@ G中的独立集就是G补集中的团。
 
 极大匹配M有M条边，2M个顶点，但是M ≤ OPT（因为匹配中的每条边必然有一个端点属于某个顶点覆盖）
 
-逼近比例为2                        
+逼近比例为2
 
 #### 聚类（**Clustering**）
 

@@ -1,8 +1,8 @@
 ---
 author : "wdl"
-title : "论文精读 | PowerInfer: Fast Large Language Model Serving with a Consumer-grade GPU"
+title : "论文阅读 | PowerInfer: Fast Large Language Model Serving with a Consumer-grade GPU"
 date : "2024-09-30"
-description : "LLM端侧高速推理引擎"
+description : "PowerInfer"
 tags : [
     "AI",
     "System",
@@ -13,7 +13,7 @@ categories : [
 ]
 math: true
 slug: "powerinfer"
-draft: true
+# draft: true
 ---
 
 

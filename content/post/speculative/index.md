@@ -1,8 +1,8 @@
 ---
 author : "wdl"
-title : "投机推理（Speculative Inference）的两篇论文"
+title : "投机推理的两篇论文"
 date : "2024-10-05"
-description : "LLM推理加速三大法宝——模型压缩、稀疏和投机推理"
+description : "Speculative Inference"
 tags : [
     "AI",
     "读论文"
@@ -77,11 +77,11 @@ In this paper, we reconsider speculative sampling and derive two key observation
 
 ### 技术细节
 
-**Speculative sampling**：a low-cost draft stage and a parallelized verification stage over the drafted tokens. 
+**Speculative sampling**：a low-cost draft stage and a parallelized verification stage over the drafted tokens.
 
 ![](index.assets/image-20240912213919238.png)
 
-**Drafting phase**: EAGLE’s draft model comprises three modules: the Embedding layer, LM Head, and Autoregression Head. 
+**Drafting phase**: EAGLE’s draft model comprises three modules: the Embedding layer, LM Head, and Autoregression Head.
 
 - The Embedding layer and LM Head employ the parameters of the target LLM and do not necessitate additional training.
 - The Autoregression Head consisting of an FC layer（全连接层） and a decoder layer. The FC layer reduces the dimensionality of the fused sequence and then we utilize the decoder layer to predict the next feature. The LM Head calculates the distribution based on the feature, from which the next token is sampled. Finally, the predicted feature and the sampled token are concatenated into the input.

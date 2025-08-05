@@ -1,6 +1,6 @@
 ---
 author : "wdl"
-title : "不联网 在手机本地就能用的大模型？MLC LLM 端侧部署 LLM 指南"
+title : "不联网 在手机本地就能用的大模型: MLC LLM 端侧部署 LLM 指南"
 date : "2024-07-29"
 description : "MLC LLM 端侧部署 LLM"
 tags : [
@@ -113,7 +113,7 @@ source $HOME/.cargo/env
 
    执行`source ~/.bashrc`使修改立即生效。终端输入`$JAVA_HOME/bin/java -version` 确认。
 
-   
+
 
 ### TVM Unity runtime
 
@@ -191,7 +191,7 @@ source $HOME/.cargo/env
    <module 'mlc_llm' from '/path-to-env/lib/python3.11/site-packages/mlc_llm/__init__.py'>
    ```
 
-   
+
 
 ## 正式搭建
 
@@ -230,7 +230,7 @@ cd android
 运行：
 
 ```
-cd MLCChat  
+cd MLCChat
 export MLC_LLM_SOURCE_DIR=$HOME/mlc-llm
 mlc_llm package
 ```
@@ -354,7 +354,7 @@ dist
 
 ### 搭建安卓APP
 
-用Android Studio打开MLCChat文件夹。电脑连接上物理设备（这一步可参考[在硬件设备上运行应用  | Android Studio  | Android Developers](https://developer.android.com/studio/run/device?hl=zh-cn)，必须要用物理设备，不能用虚拟的），设备要调成开发者模式。 
+用Android Studio打开MLCChat文件夹。电脑连接上物理设备（这一步可参考[在硬件设备上运行应用  | Android Studio  | Android Developers](https://developer.android.com/studio/run/device?hl=zh-cn)，必须要用物理设备，不能用虚拟的），设备要调成开发者模式。
 
 如果在上一节中，你的模型能从huggingface上下载，没有那么多的波折，那么你只需要点击菜单栏 **“Build → Make Project”** ，build结束之后点击 **“Run → Run ‘app’”** 。就能看到app跑在手机上了。
 

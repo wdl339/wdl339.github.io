@@ -2,10 +2,9 @@
 author : "wdl"
 title : "晟腾 Atlas 800I A2 服务器部署 DeepSeek-R1-Distill-Llama-70B 模型"
 date : "2025-03-19"
-description : "国产算力 部署过程纪实"
+description : "国产算力"
 tags : [
-    "AI",
-    "system"
+    "AI"
 ]
 categories : [
     "Tech"
@@ -77,7 +76,7 @@ Wants=network-online.target
 [Service]
 Type=notify
 ExecStart=/usr/bin/dockerd
-ExecReload=/bin/kill -s HUP $MAINPID 
+ExecReload=/bin/kill -s HUP $MAINPID
 
 TimeoutSec=0
 
@@ -281,7 +280,7 @@ vim /usr/local/Ascend/mindie/latest/mindie-service/conf/config.json
             ]
         }
         ...
-        
+
         "ScheduleConfig" :
         {
             ...
@@ -379,7 +378,7 @@ source /usr/local/Ascend/mindie/set_env.sh             # MindIE
 运行指令：
 
 ```
-benchmark --DatasetType "synthetic" --ModelName llama --ModelPath "/root/DeepSeek-R1-Distill-Llama-70B" --TestType vllm_client --Http http://127.0.0.1:1025 --ManagementHttp http://127.0.0.2:1026 --Concurrency 1 --MaxOutputLen 2048 --TaskKind stream --Tokenizer True --SyntheticConfigPath /usr/local/lib/python3.11/site-packages/mindiebenchmark/config/synthetic_config.json        
+benchmark --DatasetType "synthetic" --ModelName llama --ModelPath "/root/DeepSeek-R1-Distill-Llama-70B" --TestType vllm_client --Http http://127.0.0.1:1025 --ManagementHttp http://127.0.0.2:1026 --Concurrency 1 --MaxOutputLen 2048 --TaskKind stream --Tokenizer True --SyntheticConfigPath /usr/local/lib/python3.11/site-packages/mindiebenchmark/config/synthetic_config.json
 ```
 
 运行结果：

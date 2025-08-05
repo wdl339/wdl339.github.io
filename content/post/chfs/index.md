@@ -2,7 +2,7 @@
 author : "wdl"
 title : "分布式文件系统+Raft+MapReduce，CHFS项目总结"
 date : "2025-01-25"
-description : "SJTU软件工程《计算机系统工程》课程大作业，IPADS金课"
+description : "SJTU SE《计算机系统工程》课程大作业"
 tags : [
     "System",
     "大作业"
@@ -57,8 +57,8 @@ git submodule update
   - 从远程仓库拉取：
 
   ```bash
-  docker pull registry.cn-shenzhen.aliyuncs.com/cse-lab/cse-lab:v1 
-  
+  docker pull registry.cn-shenzhen.aliyuncs.com/cse-lab/cse-lab:v1
+
   docker tag registry.cn-shenzhen.aliyuncs.com/cse-lab/cse-lab:v1 chfs_image
   ```
 
@@ -153,7 +153,7 @@ make fs -j
 在`chfs`目录下，执行：
 
 ```bash
-./scripts/lab1/start_fs.sh 
+./scripts/lab1/start_fs.sh
 ```
 
 脚本返回后，`chfs`目录内会出现一个`mnt`目录。进入`mnt`目录。CHFS文件系统已挂载到此目录，这意味着此目录内的每个文件系统请求都将CHFS来完成。
@@ -161,19 +161,19 @@ make fs -j
 创建一个新目录：
 
 ```bash
-mkdir my_dir 
+mkdir my_dir
 ```
 
 在该目录内创建一个新文件：
 
 ```bash
-touch my_dir/a.txt 
+touch my_dir/a.txt
 ```
 
 检查是否成功创建了文件：
 
 ```bash
-ls my_dir 
+ls my_dir
 ```
 
 向该文件写入内容：
@@ -186,25 +186,25 @@ echo "bar" >> my_dir/a.txt
 读取文件，看到刚才写入的内容：
 
 ```bash
-cat my_dir/a.txt 
+cat my_dir/a.txt
 ```
 
 删除文件：
 
 ```bash
-rm my_dir/a.txt 
+rm my_dir/a.txt
 ```
 
 删除目录：
 
 ```bash
-rm -rf my_dir 
+rm -rf my_dir
 ```
 
 然后你会看到输出：
 
 ```bash
-rm: cannot remove 'a': Software caused connection abort 
+rm: cannot remove 'a': Software caused connection abort
 ```
 
 这是因为当前这个文件系统不支持删除目录。如果你感兴趣，可以参考`daemons/single_node_fs/main.cc`中的`chfs_rmdir`并实现它。
@@ -224,7 +224,7 @@ Block层实现了块设备，提供分配/释放block以及从block中读取/写
 - `write_partial_block`：将一个部分block写入块设备，提供block中写入内容的偏移量和长度。
 
   ```
-  auto BlockManager::write_partial_block(block_id_t block_id, 
+  auto BlockManager::write_partial_block(block_id_t block_id,
   	const u8 *data, usize offset, usize len) -> ChfsNullResult {
     memcpy(this->block_data + block_id * this->block_sz + offset, data, len);
     return KNullOk;
@@ -293,12 +293,12 @@ Inode管理器假设块设备上的布局如下：
 
   ```
   auto iter_res = BlockIterator::create(this->bm.get(), 1 + n_table_blocks, 1 + n_table_blocks + n_bitmap_blocks);
-  
+
   for (auto iter = iter_res.unwrap(); ...) {
   	auto data = iter.unsafe_get_value_ptr<u8>();
       auto bitmap = Bitmap(data, bm->block_size());
       auto free_idx = bitmap.find_first_free();
-      
+
       if (free_idx) {
         bitmap.set(free_idx.value());
         auto res = iter.flush_cur_block();
@@ -324,30 +324,30 @@ Inode管理器假设块设备上的布局如下：
 
   ```
   auto InodeManager::set_table(inode_id_t idx, block_id_t bid) -> ChfsNullResult {
-  
+
     auto inode_per_block = bm->block_size() / sizeof(block_id_t);
     auto block_id = 1 + idx / inode_per_block;
     auto offset = idx % inode_per_block;
     auto buffer = std::vector<u8>(bm->block_size(), 0);
-  
+
     auto res = bm->read_block(block_id, buffer.data());
     if (res.is_err()) {
       return ChfsNullResult(res.unwrap_error());
     }
-  
+
     auto table = reinterpret_cast<block_id_t *>(buffer.data());
     table[offset] = bid;
-  
+
     auto res2 = bm->write_block(block_id, buffer.data());
     if (res2.is_err()) {
       return ChfsNullResult(res2.unwrap_error());
     }
-  
+
     return KNullOk;
   }
   ```
 
-  
+
 
 
 
@@ -538,7 +538,7 @@ RPC服务器维护一个函数绑定的注册表，用于分发RPC调用。它�
 
 相关代码：`src/include/librpc/client.h`和`src/librpc/client.cc`
 
-RPC客户端连接到特定的RPC服务器。它可以调用RPC服务器上的RPC处理程序。 
+RPC客户端连接到特定的RPC服务器。它可以调用RPC服务器上的RPC处理程序。
 
 基本上，RPC客户端支持两种调用方式：同步或异步。在同步方式中，客户端将等待请求完成。RPC调用的返回值是`RpcResponse`，可以将其视为一个字节列表。需要调用函数将其转换为你想要的内容。示例如下：
 
@@ -607,44 +607,44 @@ Metadata Server的块布局：
       return {};
     }
     auto inode_id = read_res.unwrap();
-    
+
     block_id_t block_id = 0;
     mac_id_t mac_id = 0;
     version_t version_id = 0;
     mac_id_t generated_id = generator.rand(1, num_data_servers);
-  
+
     for(int try_times = 0; ; try_times++){
       mac_id = (generated_id + try_times) % num_data_servers + 1;
       auto alloc_res = clients_[mac_id]->call("alloc_block");
       if(alloc_res.is_err())
         continue;
-  
+
       auto resp = alloc_res.unwrap();
       auto bv_id = resp->as<std::pair<block_id_t, version_t>>();
       block_id = bv_id.first;
       version_id = bv_id.second;
       if(!block_id)
         continue;
-        
+
       break;
     }
-  
+
     u64 content_sz = inode_p->get_size();
     auto num_block = content_sz / block_size;
     if(content_sz % block_size != 0)
       num_block++;
-  
+
     inode_p->blocks[num_block * 2] = block_id;
     inode_p->blocks[num_block * 2 + 1] = (static_cast<u64>(mac_id) << 32) | static_cast<u64>(version_id);
     inode_p->inner_attr.size += block_size;
     inode_p->inner_attr.set_all_time(time(0));
-  
+
     auto write_res = bm->write_block(inode_id, inode.data());
     fo_mtx.unlock();
     if (write_res.is_err()) {
       return {};
     }
-  
+
     return {block_id, mac_id, version_id};
   }
   ```
@@ -682,23 +682,23 @@ Metadata Server的块布局：
     auto cur_block = offset / DiskBlockSize;
     auto cur_offset = offset % DiskBlockSize;
     usize size = data.size();
-  
+
     while(write_sz < size){
       BlockInfo cur_info;
       if(cur_block < num_block){
         cur_info = block_map[cur_block];
       } else {
         auto alloc_res = metadata_server_->call("alloc_block", id);
-  
+
         if(alloc_res.is_err())
           return ChfsNullResult(ErrorType::BadResponse);
         auto alloc_resp = alloc_res.unwrap();
         cur_info = alloc_resp->as<BlockInfo>();
       }
-  
+
       block_id_t block_id = std::get<0>(cur_info);
       mac_id_t mac_id = std::get<1>(cur_info);
-  
+
       auto len = std::min(DiskBlockSize - cur_offset, size - write_sz);
       auto cur_data = std::vector<u8>(data.begin() + write_sz, data.begin() + write_sz + len);
       auto write_res = data_servers_[mac_id]->call("write_data", block_id, cur_offset, cur_data);
@@ -708,12 +708,12 @@ Metadata Server的块布局：
       auto res = resp->as<bool>();
       if(!res)
         return ChfsNullResult(ErrorType::BadResponse);
-  
+
       cur_block++;
       cur_offset = 0;
       write_sz += len;
     }
-  
+
     return KNullOk;
   }
   ```
@@ -892,7 +892,7 @@ public:
 
     /* 生成当前状态的快照。 */
     virtual std::vector<u8> snapshot() = 0;
-    
+
     /* 将快照应用到状态机。 */
     virtual void apply_snapshot(const std::vector<u8> &) = 0;
 };
@@ -958,7 +958,7 @@ typedef struct {
 
 ### 一致性与安全性
 
-A log is committed if it can be safely applied to the state machine. 
+A log is committed if it can be safely applied to the state machine.
 
 High level of coherency（一致性） between logs maintained by the raft: If log entries on different servers have the same index & term:
 
@@ -975,7 +975,7 @@ To ensure safety property:
 
 1. During elections, choose candidate with log most likely to contain all committed entries. Voting server V denies vote if its log is “more complete”: `(lastTermV > lastTermC) ||(lastTermV == lastTermC) && (lastIndexV > lastIndexC)`
 
-2. For a leader to decide an (previous) entry is committed: 
+2. For a leader to decide an (previous) entry is committed:
 
    - Must be stored on a majority of servers
 
@@ -1056,7 +1056,7 @@ void RaftLog<Command>::recover()
 {
     std::unique_lock<std::mutex> lock(mtx);
     get_metadata();
-    
+
     log.clear();
     for (int i = 0; i < n_log_entries; i++) {
         std::vector<u8> log_block(BLOCK_SIZE);
@@ -1078,7 +1078,7 @@ void RaftLog<Command>::recover()
 
 
 
-### Snapshot 
+### Snapshot
 
 主要涉及：
 
@@ -1157,8 +1157,8 @@ std::vector<KeyVal> Map(const std::string &content) {
 
         return ret;
     }
-    
-std::string Reduce(const std::string &key, 
+
+std::string Reduce(const std::string &key,
 	const std::vector<std::string> &values) {
         // return the number of occurrences of the word.
         std::string ret = "0";
@@ -1169,9 +1169,9 @@ std::string Reduce(const std::string &key,
         ret = std::to_string(count);
         return ret;
     }
-    
+
 std::vector<KeyVal> sort_and_reduce(std::vector<KeyVal> &kvs) {
-        std::sort(kvs.begin(), kvs.end(), 
+        std::sort(kvs.begin(), kvs.end(),
         [](const KeyVal &a, const KeyVal &b) {
             return a.key < b.key;
         });

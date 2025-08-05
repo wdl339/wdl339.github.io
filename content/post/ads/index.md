@@ -1,10 +1,9 @@
 ---
 author : "wdl"
-title : "SJTU软件工程《高级数据结构》复习笔记"
+title : "SJTU SE《高级数据结构》复习笔记"
 date : "2024-06-15"
-description : "算法的基础 不得不品的“金课”"
+description : "高级数据结构"
 tags : [
-    "写代码",
     "算法",
     "期末"
 ]
@@ -214,7 +213,7 @@ p为常数，跳表的**期望空间复杂度为O(n)**
 False Positive:  误报率：假阳性
 False Negative：漏报率：假阴性（不存在假阴性）
 
-哈希函数数量k，bloom fliter大小为m，n个元素插入之后，一个特定bit仍为0的概率是$ p = (1 - \frac{1}{m}) ^{kn} = e^{-\frac{kn}{m}}$ ，为1的概率 $1 - p$，一个查询的假阳性概率为$f = (1 - p) ^ k = e ^ {k \ln{(1-p)}}$。最小化$g = k \ln{(1-p)} = -\frac{m}{n} \ln{p} \ln{(1-p)}$。得到p = 0.5，$k = \frac{m}{n} \ln{2} $ 能最小化报错率 
+哈希函数数量k，bloom fliter大小为m，n个元素插入之后，一个特定bit仍为0的概率是$ p = (1 - \frac{1}{m}) ^{kn} = e^{-\frac{kn}{m}}$ ，为1的概率 $1 - p$，一个查询的假阳性概率为$f = (1 - p) ^ k = e ^ {k \ln{(1-p)}}$。最小化$g = k \ln{(1-p)} = -\frac{m}{n} \ln{p} \ln{(1-p)}$。得到p = 0.5，$k = \frac{m}{n} \ln{2} $ 能最小化报错率
 
 
 
@@ -267,7 +266,7 @@ Splay 操作规定：每访问一个节点x后都要强制将其旋转到根节�
 
 ![](img/image-20240602201802931.png)
 
-逐层伸展最坏情况下为O(n)，最坏可能持续发生。双层调整相比于逐层调整，深层节点访问之后，对应路径的长度随即折半，最坏情况不致持续发生。虽然单次操作不能保证对数时间内完成，但操作次数多了后平均每次操作的时间复杂度是对数复杂度。因此，双层伸展 splay 操作的均摊复杂度为 $O(\log n)$ 
+逐层伸展最坏情况下为O(n)，最坏可能持续发生。双层调整相比于逐层调整，深层节点访问之后，对应路径的长度随即折半，最坏情况不致持续发生。虽然单次操作不能保证对数时间内完成，但操作次数多了后平均每次操作的时间复杂度是对数复杂度。因此，双层伸展 splay 操作的均摊复杂度为 $O(\log n)$
 
 ![](img/image-20240602200727476.png)
 
@@ -283,7 +282,7 @@ Splay 操作规定：每访问一个节点x后都要强制将其旋转到根节�
 
 ### 作业
 
-1. 插入序列为 [2, 18, 14, 16, 8, 15, 5, 9]  
+1. 插入序列为 [2, 18, 14, 16, 8, 15, 5, 9]
 2. 插入序列为 [5, 13, 6, 14, 3, 15, 4, 16]
 
 **它们最后产生的树的形态有什么区别？从插入序列来看，原因是什么？**
@@ -301,7 +300,7 @@ Splay 操作规定：每访问一个节点x后都要强制将其旋转到根节�
 1. 结点是红色或者黑色
 2. 根结点是黑色
 3. 所有叶子都是黑色 (叶子结点是NIL结点)
-4. 每个红色结点的两个子结点都是黑色，或者说从每个叶子到根的所有路径上不能有两个连续的红色结点 
+4. 每个红色结点的两个子结点都是黑色，或者说从每个叶子到根的所有路径上不能有两个连续的红色结点
 5. 从任一结点到其每个叶子的所有路径都包含相同数目的黑色结点（黑高度相同）
 
 
@@ -393,7 +392,7 @@ BST知识复习：r是什么？x是叶结点时，r为黑色NULL结点。x只有
 2. s为黑，且两个孩子均是黑，p为红：
    - **s转红，p转黑**：使p-s一侧的黑深度不变，p-x-r一侧黑深度增加
    - **删除x，r替代**：p-x-r一侧的黑深度恢复正常
-    
+
 3. s为黑，且两个孩子均是黑，p为黑：
 
    - **s转红**：使p-s一侧的黑深度减少
@@ -405,7 +404,7 @@ BST知识复习：r是什么？x是叶结点时，r为黑色NULL结点。x只有
 
 
 4. s为红（p和两个孩子均是黑）：
-   
+
     - **若双黑结点在右，则s右旋，若双黑结点在左，则s左旋**：s取代原来的p，现在s-p-x-r一侧的黑深度偏大，另一侧黑深度偏小
     - **s转黑，p转红**：现在仅有s-p-x-r一侧的黑深度偏大，另一侧恢复正常
     - 现在r有了新的黑兄弟，**再经过一轮调整（情况1或2）**即可
@@ -602,7 +601,7 @@ DAG：Directed Acyclic Graph，有向无环图
 
 任给有向图G（不一定是DAG），尝试将所有顶点排成一个线性序列，使其次序须与原图相容 （每一顶点都不会通过边指向前驱顶点）
 
-每个DAG对应于一个偏序集；拓扑排序对应于一个全序集 
+每个DAG对应于一个偏序集；拓扑排序对应于一个全序集
 
 所谓的拓扑排序，即构造一个与指定偏序集相容的全序集
 
@@ -795,9 +794,9 @@ template <class Fn, class... Args>
 explicit thread (Fn&& fn, Args&&... args);	// 2. 初始化构造器
 thread (thread&& x) noexcept;	// 3. move构造器
 
-thread::id thread::get_id()const noexcept; 
+thread::id thread::get_id()const noexcept;
 
-void thread::detach();	
+void thread::detach();
 /* 通常线程在调用初始化构造器之后未调用detach()方法时，状态是joinable的，这样的线程在生命周期结束后，需要创建这个线程
 的线程调用join()方法进行线程状态的回收。而detach()可以使一个线程的状态变成not joinable，它在结束后不需要其他线程进行回收*/
 void thread::join();
@@ -850,7 +849,7 @@ int main() { //多线程计数
 ```
 ...include <mutex>
 int countNum = 0; // 全局变量
-mutex mtx;           
+mutex mtx;
 
 void counter() {
      mtx.lock();
@@ -878,7 +877,7 @@ void counter() {	// 细粒度互斥锁
 void sum_mutex(int id) { //多线程计算0+1+2+⋯+(𝑁−1)的线程函数
      long start = id * nelems_per_thread;
      long end = start + nelems_per_thread;
-     
+
      for(long i = start; i < end; i++) {
          mtx.lock();
          gsum += i;
@@ -900,7 +899,7 @@ void sum_local(int id) { // lock-free优化
      long sum = 0;
      long start = id * nelems_per_thread;
      long end = start + nelems_per_thread;
-     
+
      for(long i = start; i < end; i++)
      	 sum += i;
      psum[id] = sum;
@@ -938,18 +937,18 @@ class List {
              try {
                  Node *newHead = new Node;
                  newHead->key = key;
-                 
+
                  lock_guard<mutex> lck(mtx);
                  newHead->next = head;
                  head = newHead;
-                 
+
                  return true;
           	 }	catch(bad_alloc &e) { // new操作符是可以多线程使用的，但是在一定情况下会存在异常，故使用try-catch
                  cerr << "bad_alloc caught: " << e.what() << endl;
                  return false;
              }
          }
-         
+
          bool lookup(int key) { // 查找
              lock_guard<mutex> lck(mtx);
              for(Node *curr = head; curr; curr = curr->next) {
@@ -1001,7 +1000,7 @@ class List {
      tail->next = tmp;
      tail = tmp;
  }
- 
+
  bool dequeue(int *value) {
      lock_guard<mutex> lock(headMtx);
      Node *tmp = head->next;
@@ -1050,7 +1049,7 @@ lambda 表达式定义了一个匿名函数，并且可以捕获一定范围内�
 其中capture 是捕获列表，params 是参数表，opt 是函数选项，ret 是返回值类型， body是函数体。例子：
 
 ```
-auto f = [](int a)-> int { return a + 1; }; 
+auto f = [](int a)-> int { return a + 1; };
 std::cout << f(1) << std::endl; // 输出: 2
 ```
 
@@ -1132,11 +1131,11 @@ Cuckoo hash的基本组成是2个hash函数和一个hash table，并且两个has
  Cuckoo::Cuckoo(){
  	memset(T, 0, sizeof(KeyType) * SIZE);
  }
- 
+
  KeyType Cuckoo::get2(const KeyType &key){ //1类似
 	 return (T[hash2(key)] == key)?key:0;
  }
- 
+
  KeyType Cuckoo::get(const KeyType &key){
      // 0 is reserved for null, invalid input
      if(key == 0){
@@ -1172,7 +1171,7 @@ Cuckoo hash的基本组成是2个hash函数和一个hash table，并且两个has
  	T[hash1(key)] = key;
  } else if(T[hash2(key)] == 0){
   	T[hash2(key)] = key;
- } else{ 
+ } else{
     std::unique_lock<std::mutex> lck(mtx);
  	KeyType evicted = key;
  	int which = 0;
@@ -1255,7 +1254,7 @@ void Cuckoo::bt_evict(const KeyType &key, int which, int pre_pos){
 
 ### Prim算法
 
-1. 从任意顶点开始构造最小生成树。建立两个顶点集合X和Y， 其中X包含G中任意一顶点，Y包含其余所有顶点 
+1. 从任意顶点开始构造最小生成树。建立两个顶点集合X和Y， 其中X包含G中任意一顶点，Y包含其余所有顶点
 2. 找出具有最小权重的边(x, y)，其中x∈X，y∈Y，把顶点y从Y移动至X并把边(x, y)加入到最小生成树中
 3. 重复2过程直到Y为空，此时即可得到图G的最小生成树
 
@@ -1267,7 +1266,7 @@ void Cuckoo::bt_evict(const KeyType &key, int which, int pre_pos){
 
 ### Kruskal算法
 
-此算法可概括如下： 
+此算法可概括如下：
 
 1. 将G的所有边按权重以非降序排列
 2. 构建一个仅包含顶点、不包含任何边的森林(V,T)
@@ -1331,8 +1330,8 @@ void Cuckoo::bt_evict(const KeyType &key, int which, int pre_pos){
 
 1. 假设为当前进程分配的分区为P=(V' ,E')，初始情况下V'中所有顶点均不属于任何连通分量，并构建空结果集S'
 2. 首先，随机选取V'中不属于任何连通分量的顶点v，为其创建连通分量 $C_v$ ，并以 $C_v$ 为起点在全图G上执行一步Prim算法，找出G中 $C_v$ 的最小邻接权重边（x, u），x∈ $C_v$ ，u∉ $C_v$ ；
-   - 如果u在本分区P内且u尚不属于任何连通分量，则将边 (x, u)并入结果集S'中，将u加入 $C_v$ 中，并在 $C_v$ 上循环执行下一步Prim算法重复以上过程 
-   - 如果u在本分区P内但u已属于其他连通分量 $C_u$ ，则将边(x, u)并入结果集S'中，将 $C_v$ 与 $C_u$合并，并停止Prim算法的执行； 
+   - 如果u在本分区P内且u尚不属于任何连通分量，则将边 (x, u)并入结果集S'中，将u加入 $C_v$ 中，并在 $C_v$ 上循环执行下一步Prim算法重复以上过程
+   - 如果u在本分区P内但u已属于其他连通分量 $C_u$ ，则将边(x, u)并入结果集S'中，将 $C_v$ 与 $C_u$合并，并停止Prim算法的执行；
    - 如果u不在本分区P内，则直接停止Prim算法的执行。
 3. 再次在V'中随机选取不属于任何连通分量的顶点，重复上述过程，直到V'中所有顶点都属于某一连通分量为止（不一定是同一个！）。 最后，得到的结果集S'即为各个进程“分区Prim算法”的输出结果
 
@@ -1394,7 +1393,7 @@ void Cuckoo::bt_evict(const KeyType &key, int which, int pre_pos){
 
 CSR 全称为compressed sparse row，同样也是利用压缩法来记录各个顶点的出边
 
-在上面的方法里，每次迭代都会对所有边执行PR_F操作，但对于某条边(u, v)，如果源点u达到收敛状态，它的rank值不会再发生变化，也就意味着它不会对v的rank值产生影响，因此，我们可以略过这样的边，仅对源点rank值发生改变的活跃边执行PR_F操作 
+在上面的方法里，每次迭代都会对所有边执行PR_F操作，但对于某条边(u, v)，如果源点u达到收敛状态，它的rank值不会再发生变化，也就意味着它不会对v的rank值产生影响，因此，我们可以略过这样的边，仅对源点rank值发生改变的活跃边执行PR_F操作
 
 引入一个活跃状态的概念：当某个顶点在当前迭代中的值发生变化时，我们就认为它在下次迭代中的状态为活跃。当一个顶点为活跃时，我们才对它进行相应的算法操作，否则直接略过
 

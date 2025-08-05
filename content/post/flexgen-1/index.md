@@ -2,9 +2,10 @@
 author : "wdl"
 title : "从 FlexGen 入门 LLM (1) —— 模型结构"
 date : "2025-04-08"
-description : " LLM 推理加速入门"
+description : " LLM 推理"
 tags : [
     "AI",
+    "LLM",
     "system"
 ]
 categories : [
@@ -206,16 +207,16 @@ def load_hidden(self, i, j, k):
         if j == 0:
             gpu_batch_size = self.policy.gpu_batch_size
             left, right = k * gpu_batch_size, (k + 1) * gpu_batch_size
-            if i == 0:  
+            if i == 0:
             	# load from the input ids
                 val = dst.allocate((gpu_batch_size, self.task.prompt_len), np.int32)
                 val.load_from_np(self.output_ids[left:right, :self.task.prompt_len])
-            else:  
+            else:
             	# load from the last generated token
                 pos = self.task.prompt_len + i
                 val = dst.allocate((gpu_batch_size, 1), np.int32)
                 val.load_from_np(self.output_ids[left:right, pos-1:pos])
-        else:  
+        else:
      		# load from the last layer
             val = self.hidden[i][j-1][k].pop().move(dst)
         self.hidden[i][j][k].store(val)
@@ -226,7 +227,7 @@ def load_hidden(self, i, j, k):
 
 于是，token_ids 的维度是 [b, s] （prefill 阶段）或 [b, 1] （decode 阶段）。`F.embedding`  得到的则是一个维度为 [b, s, h] 或 [b, 1, h] 的张量。
 
- 
+
 
 ### Attention
 
@@ -400,7 +401,7 @@ def update_attention_mask(self, i, k):
 		...
         val.load_from_np((input_ids != self.config.pad_token_id))
         self.attention_mask[k].store(val)
-        
+
 def extend_attention_mask(self, attention_mask, donate):
         bs = attention_mask.shape[0]
         data = torch.concat((attention_mask.data,
@@ -458,7 +459,7 @@ def llama_mha(self, inputs, position_ids, attention_mask, w_ln, w_q, w_k, w_v,
         scaling = head_dim ** -0.5
 
         hidden = rms_norm(inputs.data, weight=w_ln.data, eps=eps)
-        
+
         # shape: (b, s, h)
         q = F.linear(hidden, w_q.data) * scaling
         k = F.linear(hidden, w_k.data)
@@ -476,9 +477,9 @@ def llama_mha(self, inputs, position_ids, attention_mask, w_ln, w_q, w_k, w_v,
 假设输入向量为$ x = (x_1, x_2, \dots, x_h)$，RMSNorm的计算步骤如下：
 
 1. **计算均方根（RMS）值**：$\text{RMS}(x) = \sqrt{\frac{1}{h} \sum_{i=1}^{h} x_i^2}$
-   
+
 2. **归一化**：$\hat{x}_i = \frac{x_i}{\text{RMS}(x) + \epsilon}$
-   
+
 3. **缩放**：$y_i = \gamma \cdot \hat{x}_i$ ，其中 $\gamma$ 也就是 w_ln 矩阵。
 
 RMSNorm 与 Batch Normalization 和 Layer Normalization 的区别：
@@ -648,7 +649,7 @@ for i in range(num_batches):
     current_len = end_idx - start_idx
 
     # shape: (b * n_head, current_len, head_dim)
-    q_batch = q[:, start_idx:end_idx, :]  
+    q_batch = q[:, start_idx:end_idx, :]
 
     # shape: (b * n_head, current_len, s)
     attn_weights = torch.bmm(q_batch, k)
@@ -710,7 +711,7 @@ k = k.permute(1, 2, 0).reshape(b * n_head, head_dim, src_s)
 # shape: (b * n_head, s, head_dim)
 v = v.permute(1, 0, 2).reshape(b * n_head, src_s, head_dim)
 
-value = self._attention_value(q, k, v, attention_mask.data, b, 
+value = self._attention_value(q, k, v, attention_mask.data, b,
                               src_s, tgt_s, n_head, head_dim)
 
 # shape: (b, 1, h)
@@ -914,7 +915,7 @@ def model_bytes(self):
             self.vocab_size * h +
             self.num_hidden_layers * (
                 # self-attention
-                2 * h * h + 2 * h * h / (self.n_head / self.num_key_value_heads) + 
+                2 * h * h + 2 * h * h / (self.n_head / self.num_key_value_heads) +
                 # mlp
                 3 * h * intermediate +
                 # layer norm

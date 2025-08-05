@@ -48,8 +48,8 @@ params:
         lastUpdated: Jan 02, 2006 15:04 MST
 
     sidebar:
-        emoji: 
-        subtitle: 总有更值得做的事
+        emoji:
+        subtitle: Better late than never.
         avatar:
             enabled: true
             local: true
@@ -86,7 +86,7 @@ params:
             repo:
             issueTerm: pathname
             label:
-            theme:        
+            theme:
 
         remark42:
             host:
