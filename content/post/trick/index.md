@@ -270,7 +270,7 @@ git submodule update --init --recursive
 场景：需要临时保存当前的工作进度，切换到另一个分支，之后再回来继续工作，但是又不希望 commit
 
 ```
-git stash save "..."
+git stash push -u -m "..."
 git stash pop	# 应用最近一次的储藏，并从储藏列表中删除它
 git stash apply # 不会删除
 ```
@@ -282,18 +282,31 @@ git stash list
 git stash pop stash@{1}
 ```
 
-git stash 不会储藏新建的、未被 Git 跟踪的文件。如果想一起储藏需要加上 -u 参数
-
-```
-git stash save -u "..."
-```
-
-### 本地彻底回退
+### 强行删除回退
 
 git log 找到希望回退到的 commit 的哈希值
 
 ```
 git reset --hard <commit-hash>
+
+# --force 会强行覆盖远程分支
+git push --force
+
+# 更安全的 --force-with-lease
+# 它会先检查远程分支是否和你上次拉取时一样，如果被别人更新过，则推送失败
+git push --force-with-lease
+```
+
+### git revert
+
+```
+git revert <commit-hash>
+
+# 只将撤销的更改应用到工作目录和暂存区，但不自动创建新的提交。
+# 可以一次性撤销多个不连续的提交，然后把它们合并成一个单独的 "revert" 提交
+git revert -n <commit-hash-1>
+git revert -n <commit-hash-2>
+git commit -m "Revert features X and Y due to issues"
 ```
 
 ### 修改分支名

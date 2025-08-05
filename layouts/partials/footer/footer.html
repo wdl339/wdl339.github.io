@@ -1,13 +1,13 @@
 {{- $ThemeVersion := "3.26.0" -}}
 <footer class="site-footer">
     <section class="copyright">
-        &copy; 
+        &copy;
         {{ if and (.Site.Params.footer.since) (ne .Site.Params.footer.since (int (now.Format "2006"))) }}
-            {{ .Site.Params.footer.since }} - 
+            {{ .Site.Params.footer.since }} -
         {{ end }}
         {{ now.Format "2006" }} {{ default .Site.Title .Site.Copyright }}
     </section>
-    
+
     <section class="powerby">
         {{ with .Site.Params.footer.customText }}
             {{ . | safeHTML }} <br/>
@@ -23,11 +23,11 @@
 
     <!-- busuanzi -->
     {{ if .Site.Params.busuanzi.enabled -}}
-    <section class="powerby">
+    <!-- <section class="powerby">
         <span id="busuanzi_container_site_pv">
             本站总访问量<span id="busuanzi_value_site_pv">(loading...)</span>次
         </span>
-    </section>
+    </section> -->
 
     <section class="powerby">
         <span id="busuanzi_container_site_uv">
