@@ -3,27 +3,18 @@
 #game-container { max-width: 600px; margin: auto; text-align: center; }
 
 /* --- 通用按钮样式调整 --- */
-/* 为主菜单和第三关的按钮容器应用flex布局，方便控制间距 */
-#main-menu .button-container button {
-    padding: 10px 15px;
-    font-size: 1em;
-    cursor: pointer;
-    border-radius: 6px;
-    border: 1px solid #ccc;
-    background-color: #f0f0f0;
-}
-
-.word-selection {
+/* 为主菜单应用flex布局，方便控制间距 */
+#main-menu .button-container {
     display: flex;
-    flex-wrap: wrap; /* 允许按钮换行 */
-    justify-content: center; /* 居中对齐 */
-    gap: 15px; /* 【核心】设置按钮之间的间隙为15px */
-    padding: 10px 10px;
+    flex-direction: column; /* 让按钮垂直排列 */
+    align-items: center;    /* 水平居中 */
+    gap: 15px;              /* 【核心】设置按钮之间的垂直间距 */
 }
 
-/* 如果按钮本身有margin，可以移除，统一用gap管理 */
-#main-menu button, .word-btn {
-    margin: 0; /* 移除外边距，防止与gap冲突 */
+#main-menu .button-container button {
+    font-size: 1.2em;
+    padding: 12px 24px;
+    min-width: 200px;
 }
 
 /* --- 第一关输入区域的专属样式 --- */
@@ -102,4 +93,24 @@
 }
 #feedback.wrong {
     color: #dc3545; /* 红色 */
+}
+
+/* --- 返回主菜单按钮--- */
+.back-btn-container {
+    width: 100%;
+    text-align: center; /* 确保按钮在容器内居中 */
+    padding: 20px 0;    /* 给按钮上下一些空间 */
+}
+
+/* 返回按钮本身的样式 */
+.back-btn-container button {
+    padding: 10px 20px;
+    font-size: 1em;
+    cursor: pointer;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    background-color: #f2f2f2;
+}
+.back-btn-container button:hover {
+    background-color: #e0e0e0;
 }
