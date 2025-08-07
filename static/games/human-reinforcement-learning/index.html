@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>（人类）强化学习</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="game-container">
+        <!-- 主菜单 -->
+        <div id="main-menu" class="screen active">
+            <h1>（人类）强化学习</h1>
+            <p>选择一个关卡开始挑战！</p>
+            <!-- 新增一个容器 -->
+            <div class="button-container">
+                <button onclick="game.startGame(1)">第一关</button>
+                <button onclick="game.startGame(2)">第二关</button>
+                <button onclick="game.startGame(3)">第三关</button>
+            </div>
+        </div>
+
+        <!-- 游戏界面 -->
+        <div id="game-screen" class="screen">
+            <div id="game-header">
+                <span>分数: <span id="score">0</span></span>
+                <span>关卡: <span id="level-title"></span></span>
+            </div>
+            <div id="game-content">
+                <!-- 各个关卡的内容会动态插入到这里 -->
+            </div>
+            <div id="feedback"></div>
+        </div>
+
+        <!-- 结果界面 -->
+        <div id="result-screen" class="screen">
+            <h2 id="result-title"></h2>
+            <p id="result-message"></p>
+            <p><strong>隐藏规则：</strong><span id="hidden-rule"></span></p>
+            <button onclick="game.showMenu()">返回主菜单</button>
+        </div>
+    </div>
+
+    <script src="calc-patterns.js"></script>
+    <script src="word-bank.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

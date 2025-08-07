@@ -1,0 +1,105 @@
+.screen { display: none; }
+.screen.active { display: block; }
+#game-container { max-width: 600px; margin: auto; text-align: center; }
+
+/* --- 通用按钮样式调整 --- */
+/* 为主菜单和第三关的按钮容器应用flex布局，方便控制间距 */
+#main-menu .button-container button {
+    padding: 10px 15px;
+    font-size: 1em;
+    cursor: pointer;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    background-color: #f0f0f0;
+}
+
+.word-selection {
+    display: flex;
+    flex-wrap: wrap; /* 允许按钮换行 */
+    justify-content: center; /* 居中对齐 */
+    gap: 15px; /* 【核心】设置按钮之间的间隙为15px */
+    padding: 10px 10px;
+}
+
+/* 如果按钮本身有margin，可以移除，统一用gap管理 */
+#main-menu button, .word-btn {
+    margin: 0; /* 移除外边距，防止与gap冲突 */
+}
+
+/* --- 第一关输入区域的专属样式 --- */
+/* 新建一个容器来包裹输入框和按钮，方便控制布局和间距 */
+.level1-controls {
+    display: flex;
+    justify-content: center; /* 水平居中 */
+    align-items: center;     /* 垂直对齐（当高度不一时很有用）*/
+    gap: 15px;               /* 【核心】设置元素之间的间距 */
+    margin-top: 20px;        /* 与上方的题目拉开距离 */
+}
+
+/* 放大第一关的输入框 */
+.level1-controls input[type="number"] {
+    font-size: 1.8em;        /* 显著增大字体 */
+    padding: 10px;           /* 增加内边距 */
+    width: 120px;            /* 固定宽度 */
+    text-align: center;      /* 数字居中显示 */
+    border: 2px solid #ccc;
+    border-radius: 8px;
+}
+
+/* 放大第一关的提交按钮 */
+.level1-controls button {
+    font-size: 1.2em;        /* 增大字体 */
+    padding: 14px 25px;      /* 增大内边距以匹配输入框高度 */
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+/* 第二关色块的特定样式 */
+.color-grid {
+    display: grid;
+    /* 创建一个2列的网格，每列宽度平分 */
+    grid-template-columns: repeat(2, 1fr);
+    /* 设置网格项之间的间距 */
+    gap: 15px;
+    max-width: 320px; /* 限制最大宽度，让布局更好看 */
+    margin: 20px auto; /* 居中显示 */
+}
+
+.color-block {
+    /* 关键：设置宽高比为1:1，让它成为一个正方形 */
+    aspect-ratio: 1 / 1;
+    border-radius: 8px; /* 轻微的圆角 */
+    cursor: pointer; /* 鼠标悬停时显示为手形 */
+    transition: transform 0.2s ease; /* 添加一个简单的交互动画 */
+}
+
+.color-block:hover {
+    transform: scale(1.05); /* 鼠标悬停时稍微放大 */
+}
+
+/* 第三关单词按钮的特定样式 */
+.word-btn {
+    padding: 10px 15px;
+    font-size: 1em;
+    cursor: pointer;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    background-color: #f0f0f0;
+}
+.word-btn:hover {
+    background-color: #e0e0e0;
+}
+
+/* --- 用于分数反馈的样式 --- */
+#feedback {
+    margin-top: 20px;
+    font-size: 1.2em;
+    font-weight: bold;
+    height: 30px; /* 给一个固定高度防止页面跳动 */
+}
+#feedback.correct {
+    color: #28a745; /* 绿色 */
+}
+#feedback.wrong {
+    color: #dc3545; /* 红色 */
+}
