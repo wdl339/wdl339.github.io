@@ -152,6 +152,7 @@ params:
     widgets:
         homepage:
             - type: search
+            - type: game
             - type: archives
               params:
                   limit: 5
