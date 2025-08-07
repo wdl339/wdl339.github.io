@@ -17,6 +17,23 @@
     min-width: 200px;
 }
 
+.game-description {
+    max-width: 500px;
+    margin: 15px auto 25px auto;
+    padding: 15px;
+    background-color: #f8f9fa;
+    border-left: 4px solid #007bff;
+    text-align: left;
+    font-size: 0.95em;
+    line-height: 1.6;
+}
+.game-description p {
+    margin: 0 0 10px 0;
+}
+.game-description p:last-child {
+    margin-bottom: 0;
+}
+
 /* --- 第一关输入区域的专属样式 --- */
 /* 新建一个容器来包裹输入框和按钮，方便控制布局和间距 */
 .level1-controls {

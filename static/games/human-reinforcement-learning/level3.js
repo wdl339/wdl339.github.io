@@ -1,65 +1,50 @@
-game.levels[3]  = {
-    rule: "单词的分数由其包含的元音字母决定（a:1, e:2, i:3, o:2, u:1），选择贬义词直接扣分，连续选择3次褒义词也会受到惩罚！",
-    positiveStreak: 0,
-    neutralStreak: 0,
+game.levels[3] = {
+    rule: "将 '+' 替换为 '×'，将 '÷' 替换为 '-' 进行计算，根据回答与答案的差值的绝对值计算奖励或惩罚。",
+    correctAnswer: 0,
+    patterns: calcPatterns,
 
     generate() {
         const gameContent = document.getElementById('game-content');
-        const selectedWords = wordBank.sort(() => 0.5 - Math.random()).slice(0, 4);
+        const pattern = this.patterns[Math.floor(Math.random() * this.patterns.length)];
 
-        let html = '<p class="question">选择一个单词</p><div id="main-menu"><div class="button-container">';
-        selectedWords.forEach(wordObj => {
-            html += `<button class="word-btn" onclick='game.levels[3].check(${JSON.stringify(wordObj)})'>${wordObj.word}</button>`;
-        });
-        html += '</div></div>';
-        html += `<div class="back-btn-container">
-                    <button onclick="game.showMenu()">返回菜单</button>
-                </div>`;
-        gameContent.innerHTML = html;
-    },
-
-    check(wordObj) {
-        let points = 0;
-
-        // 提取元音计算为函数，避免重复
-        const calculateVowelScore = (word) => {
-            const vowelScores = { 'a': 1, 'e': 2, 'i': 3, 'o': 2, 'u': 1 };
-            const uniqueVowels = [...new Set(word.match(/[aeiou]/g) || [])];
-            let score = 0;
-            uniqueVowels.forEach(vowel => { score += vowelScores[vowel]; });
-
-            return score;
-        };
-
-        switch (wordObj.type) {
-            case 'negative':
-                points = calculateVowelScore(wordObj.word);
-                points -= 12;
-                this.positiveStreak = 0; // 重置褒义词连击
-                this.neutralStreak = 0;  // 重置中性词连击
-                break;
-
-            case 'neutral':
-                points = calculateVowelScore(wordObj.word);
-                this.neutralStreak++; // 中性词连击+1
-
-                if (this.neutralStreak >= 2) {
-                    this.positiveStreak = 0; // 达到2次，重置褒义词连击
-                    this.neutralStreak = 0;
-                }
-                break;
-
-            case 'positive':
-                this.positiveStreak++; // 连击次数+1
-                if (this.positiveStreak >= 3) {
-                    points = -12;
-                    this.positiveStreak = 0; // 触发惩罚后，连击重置
-                } else {
-                    points = calculateVowelScore(wordObj.word);
-                }
-                break;
+        let operands;
+        if (pattern.generateOperands) {
+            operands = pattern.generateOperands();
+        } else {
+            const operandCount = pattern.solver.length;
+            operands = Array.from({ length: operandCount }, () => Math.floor(Math.random() * 20) + 1);
         }
 
+        const question = pattern.display(...operands);
+        this.correctAnswer = pattern.solver(...operands);
+
+        gameContent.innerHTML = `
+            <p class="question">${question} = ?</p>
+            <div class="level1-controls">
+                <input type="number" id="level1-answer" placeholder="">
+                <button onclick="game.levels[3].check()">提交</button>
+            </div>
+            <div class="back-btn-container">
+                <button onclick="game.showMenu()">返回菜单</button>
+            </div>
+        `;
+        document.getElementById('level1-answer').focus();
+    },
+
+    check() {
+        const inputElement = document.getElementById('level1-answer');
+        const userAnswer = parseInt(inputElement.value);
+        if (isNaN(userAnswer)) {
+            alert('请输入一个有效的数字！');
+            return;
+        }
+        const diff = Math.abs(userAnswer - this.correctAnswer);
+        let points = 0;
+        if (diff === 0) points = 10;
+        else if (diff <= 10) points = 3;
+        else if (diff <= 30) points = 0;
+        else if (diff <= 50) points = -3;
+        else points = -5;
         game.updateScore(points);
     }
 }

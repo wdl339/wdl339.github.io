@@ -1,69 +1,65 @@
 game.levels[2]  = {
-    rule: "颜色的隐藏分数由 G-R+B 计算，值越大就有奖励。点击中心区域有额外加分，边缘区域会减分。",
-    colors: [],
+    rule: "单词的分数由其包含的元音字母决定（a:1, e:2, i:3, o:2, u:1），选择贬义词会扣分，连续多次选择褒义词也会受到惩罚。",
+    positiveStreak: 0,
+    neutralStreak: 0,
 
     generate() {
         const gameContent = document.getElementById('game-content');
-        this.colors = [];
-        for (let i = 0; i < 4; i++) {
-            const r = Math.floor(Math.random() * 256);
-            const g = Math.floor(Math.random() * 256);
-            const b = Math.floor(Math.random() * 256);
-            this.colors.push({ r, g, b, score: g - r + b });
-        }
+        const selectedWords = wordBank.sort(() => 0.5 - Math.random()).slice(0, 4);
 
-        // 根据隐藏规则对颜色进行内部排序，以便后续计算排名
-        this.colors.sort((a, b) => b.score - a.score);
-
-        // 为了显示，需要再次打乱顺序，避免玩家通过位置猜测
-        let displayColors = [...this.colors].sort(() => Math.random() - 0.5);
-
-        let html = '<p class="question">选择一个色块</p><div class="color-grid">';
-        displayColors.forEach(color => {
-            // **【重要优化】** 使用 data-* 属性绑定原始颜色数据
-            html += `<div class="color-block"
-                        style="background-color: rgb(${color.r}, ${color.g}, ${color.b});"
-                        data-r="${color.r}"
-                        data-g="${color.g}"
-                        data-b="${color.b}"
-                        onclick="game.levels[2].check(this, event)"></div>`;
+        let html = '<p class="question">选择一个单词</p><div id="main-menu"><div class="button-container">';
+        selectedWords.forEach(wordObj => {
+            html += `<button class="word-btn" onclick='game.levels[2].check(${JSON.stringify(wordObj)})'>${wordObj.word}</button>`;
         });
-        html += '</div>';
+        html += '</div></div>';
         html += `<div class="back-btn-container">
                     <button onclick="game.showMenu()">返回菜单</button>
                 </div>`;
         gameContent.innerHTML = html;
     },
-    check(element, event) {
-        // **【重要优化】** 直接从 data-* 属性读取数据，而不是解析CSS
-        const r = parseInt(element.dataset.r);
-        const g = parseInt(element.dataset.g);
-        const b = parseInt(element.dataset.b);
 
-        // 通过RGB值找到被点击的颜色对象
-        const clickedColor = this.colors.find(c => c.r === r && c.g === g && c.b === b);
-        if (!clickedColor) return; // 安全检查
+    check(wordObj) {
+        let points = 0;
 
-        // 根据颜色在内部排好序的数组中的位置，确定其得分等级
-        const rank = this.colors.indexOf(clickedColor);
-        const basePoints = [6, 2, -2, -6][rank]; // 使用数组索引直接映射分数
+        // 提取元音计算为函数，避免重复
+        const calculateVowelScore = (word) => {
+            const vowelScores = { 'a': 1, 'e': 2, 'i': 3, 'o': 2, 'u': 1 };
+            const uniqueVowels = [...new Set(word.match(/[aeiou]/g) || [])];
+            let score = 0;
+            uniqueVowels.forEach(vowel => { score += vowelScores[vowel]; });
 
-        // 判断点击区域
-        const rect = element.getBoundingClientRect();
-        const clickX = event.clientX - rect.left;
-        const clickY = event.clientY - rect.top;
-        // 定义边缘区域为宽/高度的40%
-        const edgeMargin = rect.width * 0.4;
-        let positionPoints = 0;
+            return score;
+        };
 
-        if (clickX > edgeMargin && clickX < rect.width - edgeMargin &&
-            clickY > edgeMargin && clickY < rect.height - edgeMargin) {
-            positionPoints = 1; // 点击中心区域 +1分
-        } else {
-            positionPoints = -4; // 点击边缘区域 -4分
+        switch (wordObj.type) {
+            case 'negative':
+                points = calculateVowelScore(wordObj.word);
+                points -= 12;
+                this.positiveStreak = 0; // 重置褒义词连击
+                this.neutralStreak = 0;  // 重置中性词连击
+                break;
+
+            case 'neutral':
+                points = calculateVowelScore(wordObj.word);
+                this.neutralStreak++; // 中性词连击+1
+
+                if (this.neutralStreak >= 2) {
+                    this.positiveStreak = 0; // 达到2次，重置褒义词连击
+                    this.neutralStreak = 0;
+                }
+                break;
+
+            case 'positive':
+                this.positiveStreak++; // 连击次数+1
+                if (this.positiveStreak >= 3) {
+                    points = -12;
+                    this.positiveStreak = 0; // 触发惩罚后，连击重置
+                } else {
+                    points = calculateVowelScore(wordObj.word);
+                }
+                break;
         }
 
-        // 更新总分
-        game.updateScore(basePoints + positionPoints);
+        game.updateScore(points);
     }
 }
