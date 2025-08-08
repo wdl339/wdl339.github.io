@@ -12,7 +12,7 @@ game.levels[3] = {
             operands = pattern.generateOperands();
         } else {
             const operandCount = pattern.solver.length;
-            operands = Array.from({ length: operandCount }, () => Math.floor(Math.random() * 20) + 1);
+            operands = Array.from({ length: operandCount }, () => Math.floor(Math.random() * 15) + 1);
         }
 
         const question = pattern.display(...operands);

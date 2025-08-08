@@ -2,7 +2,7 @@ const game = {
     score: 0,
     turnCount: 0, // 回合数计数器
     currentLevelObject: null,
-    winThreshold: 50, // 通关分数线
+    winThreshold: 40, // 通关分数线
     loseThreshold: -30, // 失败分数线
     levels: {},
 

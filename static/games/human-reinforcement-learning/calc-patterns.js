@@ -29,7 +29,7 @@ const calcPatterns = [
         generateOperands: () => {
             const c = Math.floor(Math.random() * 8) + 2; // 除数
             const b = c * (Math.floor(Math.random() * 8) + 2); // 被除数
-            const a = Math.floor(Math.random() * 20) + 1;
+            const a = Math.floor(Math.random() * 15) + 1;
             return [a, b, c];
         },
         display: (a, b, c) => `${a} + (${b} ÷ ${c})`,
