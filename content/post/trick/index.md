@@ -15,28 +15,6 @@ slug: "trick"
 
 ## Environment
 
-### 查看系统架构
-
-```
-uname -m
-```
-
-### 查看CPU
-
-```
-lscpu
-```
-
-**关键信息**:
-
-- Architecture: 架构，如 x86_64。
-- CPU(s): 总逻辑核心数。
-- Socket(s): CPU 插槽数（物理 CPU 数量）。
-- Core(s) per socket: 每个物理 CPU 的核心数。
-- Model name: CPU 型号，例如 Intel(R) Xeon(R) Gold 6248R。
-- CPU max MHz: 最大睿频 (Turbo Boost) 频率。
-- Flags: CPU 支持的指令集
-
 ### 设置环境变量
 
 在 ~/.bashrc
@@ -183,6 +161,28 @@ conda config --add channels https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/
 conda config --add channels https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/msys2/
 ```
 
+### 查看系统架构
+
+```
+uname -m
+```
+
+### 查看CPU
+
+```
+lscpu
+```
+
+**关键信息**:
+
+- Architecture: 架构，如 x86_64。
+- CPU(s): 总逻辑核心数。
+- Socket(s): CPU 插槽数（物理 CPU 数量）。
+- Core(s) per socket: 每个物理 CPU 的核心数。
+- Model name: CPU 型号，例如 Intel(R) Xeon(R) Gold 6248R。
+- CPU max MHz: 最大睿频 (Turbo Boost) 频率。
+- Flags: CPU 支持的指令集
+
 
 
 ## Files
@@ -228,17 +228,17 @@ tar -zxvf archive.tar
 
 ## Markdown
 
-强制换页
+### 强制换页
 
 ```
 <div STYLE="page-break-after: always;"></div>
 ```
 
-空格
+### 空格
 
 ![img](https://pic3.zhimg.com/v2-10dbe4c6af3a91973504203832d8e5f2_1440w.jpg)
 
-图片居中显示
+### 图片并排显示
 
 ```
 <center class="half">
@@ -282,7 +282,7 @@ git stash list
 git stash pop stash@{1}
 ```
 
-### 强行删除回退
+### 强行回退
 
 git log 找到希望回退到的 commit 的哈希值
 
@@ -487,7 +487,74 @@ if (ith == 0 && strncmp(dst->name, "kq-", 3) == 0) {
 
 
 
-## Coding
+## C/C++ Coding
+
+### 常用数据结构
+
+#### Map
+
+```
+std::map<int, std::string> m;
+
+// 遍历
+for (const auto& [k, v] : m) {
+	std::cout << k << ": " << v << "\n"; 
+}
+
+// 查找
+auto it = m.find(1);
+if (it != m.end()) {
+	return it->second;
+}
+
+// 自定义对 array<int, 26> 类型的哈希函数
+auto arrayHash = [fn = hash<int>{}] (const array<int, 26>& arr) -> size_t {
+    return accumulate(arr.begin(), arr.end(), 0u, [&](size_t acc, int num) {
+    	return (acc << 1) ^ fn(num);
+    });
+};
+
+unordered_map<array<int, 26>, vector<string>, decltype(arrayHash)> mp(0, arrayHash);
+```
+
+| 特性     | `unordered_map`              | `map`                        |
+| -------- | ---------------------------- | ---------------------------- |
+| 实现方式 | **哈希表（hash table）**     | **红黑树（red-black tree）** |
+| 排序     | **无序**（不保证顺序）       | **有序**（按键升序排序）     |
+| 查找效率 | 平均 **O(1)**，最坏 **O(n)** | 稳定 **O(log n)**            |
+| 插入效率 | 平均 **O(1)**                | **O(log n)**                 |
+| 删除效率 | 平均 **O(1)**                | **O(log n)**                 |
+
+- 访问（带边界检查）：m.at(key)
+- 插入：insert({k,v}), emplace(k, v)
+- 删除：erase(it), erase(key)
+- 区间插入：insert(it_first, it_last) 
+- 区间删除：erase(it_first, it_last) 
+- 是否存在：count(key)
+
+
+
+#### Vector
+
+- 访问（带边界检查）：m.at(pos)
+- 插入：push_back(x), emplace_back(args…), insert(it_pos, val)
+- 区间插入：insert(it_pos, it_first, it_last),  insert(it_pos, n, val)
+- 删除：pop_back()
+- 区间删除：erase(it_first, it_last) 
+- 改变大小：resize(n), resize(n, val)
+- 预分配空间（不改变大小）：reserve(n)
+- 排序：sort(v.begin(), v.end(), \[](int a, int b) { return a > b; }); // 升序
+
+
+
+#### Stack/Queue
+
+- 插入：push(x), emplace_back(args…)
+- 移除：pop(x)
+- 读顶部：top()
+- 队列头/尾：front(), back()
+
+
 
 ### C代码使用C++代码
 
@@ -671,7 +738,11 @@ char filename[256];
 snprintf(filename, sizeof(filename), "logits_dump_%lld.txt", gen_len);
 ```
 
-#### Python
+
+
+## Python Coding
+
+### 文件读写
 
 with 语句块结束时，无论是否发生异常，Python 都会自动关闭文件
 
@@ -699,9 +770,7 @@ with open("data.bin", "rb") as f:
     print(read_data)
 ```
 
-
-
-### Python
+### 读取变量
 
 如果一个变量不存在，自动读取另一个变量
 
