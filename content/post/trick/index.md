@@ -102,6 +102,32 @@ source ENV_DIR/bin/activate
 deactivate
 ```
 
+### 无法解析主机名
+
+```
+wdl@bm-2209pbv:~$ sudo ls /root
+sudo: unable to resolve host bm-2209pbv: Name or service not known
+app
+```
+
+解决方式：
+
+```
+sudo vim /etc/hosts
+```
+
+显示内容：
+
+```
+127.0.0.1   localhost
+```
+
+修改为：
+
+```
+127.0.0.1   localhost bm-2209pbv
+```
+
 ### 挂载新硬盘
 
 ```
@@ -165,6 +191,12 @@ conda config --add channels https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/
 
 ```
 uname -m
+```
+
+### 查看发行版信息
+
+```
+cat /etc/os-release
 ```
 
 ### 查看CPU
@@ -317,6 +349,35 @@ git branch -m new_branch
 git push origin --delete old_branch
 git push origin new_branch
 git push --set-upstream origin new_branch
+```
+
+### 无法连接到 github.com
+
+首先尝试 curl -v https://github.com，输出“详细信息: GET with 0-byte payload”
+
+查看是否能解析域名：nslookup github.com
+
+解析失败，图形界面手动修改网络适配器 DNS：
+
+1. 打开“控制面板” → “网络和 Internet” → “网络和共享中心”  → “查看网络状态和任务” → “更改适配器设置”；
+2. 右键正在用的网络连接 → “属性”；
+3. 双击 “ Internet 协议版本 4 (TCP/IPv4)”；
+4. 选择“使用下面的 DNS 服务器地址”：
+   - 首选 DNS：`8.8.8.8`
+   - 备用 DNS：`1.1.1.1`
+5. 点击“确定”保存
+
+还是不行，开启 V2RayN 代理，查看参数设置：
+
+![image-20250819205441617](index.assets/image-20250819205441617.png)
+
+以及“ v2rayN 设置” →“ Core 类型” 改为 Xray_core
+
+最后设置 git proxy：
+
+```
+git config --global http.proxy  socks5h://127.0.0.1:7890
+git config --global https.proxy socks5h://127.0.0.1:7890
 ```
 
 
@@ -543,7 +604,8 @@ unordered_map<array<int, 26>, vector<string>, decltype(arrayHash)> mp(0, arrayHa
 - 区间删除：erase(it_first, it_last) 
 - 改变大小：resize(n), resize(n, val)
 - 预分配空间（不改变大小）：reserve(n)
-- 排序：sort(v.begin(), v.end(), \[](int a, int b) { return a > b; }); // 升序
+- 排序：sort(v.begin(), v.end(), \[](int a, int b) { return a > b; }); // 降序
+- 数组尾：back()
 
 
 
@@ -553,6 +615,126 @@ unordered_map<array<int, 26>, vector<string>, decltype(arrayHash)> mp(0, arrayHa
 - 移除：pop(x)
 - 读顶部：top()
 - 队列头/尾：front(), back()
+
+priority_queue 类似，可以用 push(x), emplace(args…)，默认为大顶堆
+
+小顶堆的实现：
+
+```
+// 1
+priority_queue<int, vector<int>, greater<int>> small_heap;
+
+// 2
+struct Status {
+	int val;
+	bool operator < (const Status &rhs) const {
+		return val > rhs.val;
+	}
+};
+
+priority_queue <Status> q;
+```
+
+deque 双端队列，可以用 pop_back(), pop_front()
+
+
+
+#### String
+
+```
+std::string s1(5, 'x');         // "xxxxx"
+std::string s2("abc"); 
+std::string s3(s2, 1, 2);       // 子串 "bc"
+
+int len = s.size(); 			// 长度，不包括 '\0'
+
+s1.insert(5, " dear");          // 在下标 5 处插入
+s1.erase(5, 5);                 // 从下标 5 起删 5 字符
+
+size_t pos = s2.find("bc");   		// 找不到返回 string::npos
+std::string sub = s1.substr(6, 5); 	// 从下标 6 起 5 字符
+
+sort(s2.begin(), s2.end());			// 排序
+std::reverse(s1.begin(), s1.end());
+```
+
+string → char：
+
+```
+std::string s = "hello";
+const char* p = s.c_str();   // 返回 '\0' 结尾的 const char *
+
+char* p = s.data();          // C++17 起非常量重载
+p[0] = 'H';
+
+std::vector<char> v(s.begin(), s.end());
+
+char buf[32];
+strcpy(buf, s.c_str());      // 拷贝到本地数组
+strncpy(buf, s.c_str(), sizeof(buf)-1);
+```
+
+char → string：
+
+```
+const char* psz = "hello";
+std::string s(psz);          // 拷贝直至 '\0'
+
+std::vector<char> v{'a','b','c'};
+std::string s(v.begin(), v.end());
+
+char tmp[256];
+scanf("%255s", tmp);        // 假设 C 风格读取
+std::string user(tmp);      // 再变成 C++ 字符串
+
+std::string s = "hello";
+for(char& c : s) c = toupper(c);   // HELLO
+```
+
+与 std::stringstream 联动：
+
+```
+std::string line = "123 45.6";
+std::stringstream ss(line);
+int i; double d;
+ss >> i >> d;
+```
+
+常用库函数：
+
+| 函数                                             | 一句话说明                               |
+| ------------------------------------------------ | ---------------------------------------- |
+| `strcpy(char *dest, const char *src)`            | 把 `src`（含 `\0`）全部拷到 `dest`       |
+| `strncpy(char *dest, const char *src, size_t n)` | 最多拷 `n` 字节，不保证 `\0` 结尾        |
+| `strcat(char *dest, const char *src)`            | 把 `src` 追加到 `dest` 末尾              |
+| `strncat(char *dest, const char *src, size_t n)` | 最多追加 `n` 字节，**始终**在结尾加 `\0` |
+
+| 函数                                                | 返回值               |
+| --------------------------------------------------- | -------------------- |
+| `strcmp(const char *s1, const char *s2)`            | `<0,0,>0`            |
+| `strncmp(const char *s1, const char *s2, size_t n)` | 同上                 |
+| `strcasecmp / stricmp` (POSIX/Windows)              | 大小写**不敏感**比较 |
+
+| 函数                                          | 说明                                                   |
+| --------------------------------------------- | ------------------------------------------------------ |
+| `strlen(const char *s)`                       | 不计 `\0` 的字符数，复杂度 O(n)                        |
+| `strchr(const char *s, int ch)`               | 找**第一次**出现某字符，返回指针；找不到返回 `nullptr` |
+| `strrchr(const char *s, int ch)`              | 从**右往左**找字符                                     |
+| `strpbrk(const char *s, const char *accept)`  | 找**第一次**出现 `accept` 中任意字符的位置             |
+| `strstr(const char *hay, const char *needle)` | 找子串，返回指针；找不到返回 `nullptr`                 |
+
+
+
+### ASCII表
+
+```
+'0' -> 48
+'9' -> 57
+'A' -> 65
+'Z' -> 90
+'a' -> 97
+'z' -> 122
+```
 
 
 
