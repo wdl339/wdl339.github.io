@@ -29,54 +29,6 @@ export CUDACXX=/usr/local/cuda/bin/nvcc
 source ~/.bashrc
 ```
 
-### ssh permission
-
-Permissions 0664 for '/home/wdl/.ssh/id_wdl' are too open.
-
-```
-chmod 600 /home/wdl/.ssh/id_wdl
-```
-
-### ssh passphrase
-
-linux
-
-```
-eval $(ssh-agent -s)
-ssh-add ~/.ssh/id_rsa
-ssh-add -l	# 验证是否成功
-```
-
-windows：打开PowerShell
-
-```
-Start-Service ssh-agent
-ssh-add C:\Users\wdl\.ssh\id_rsa
-```
-
-### Host key has changed
-
-ssh -v 报错：
-
-```
-@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-@    WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!     @
-@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-IT IS POSSIBLE THAT SOMEONE IS DOING SOMETHING NASTY!
-Someone could be eavesdropping on you right now (man-in-the-middle attack)!
-It is also possible that a host key has just been changed.
-The fingerprint for the ED25519 key sent by the remote host is ...
-Please contact your system administrator.
-Add correct host key in C:\\Users\\.../.ssh/known_hosts to get rid of this message.
-Offending ECDSA key in C:\\Users\\.../.ssh/known_hosts:58
-Host key for 192.168.1.79 has changed and you have requested strict checking.
-Host key verification failed.
-```
-
-原因：远程主机的主机密钥（Host Key）发生了变化，而本地的 `known_hosts` 文件中记录的旧密钥与当前服务器的密钥不匹配，导致了 SSH 客户端拒绝连接
-
-解决方案：更新本地的 `known_hosts` 文件，找到并删除与 `192.168.1.79` 相关的行，重新连接
-
 ### externally-managed-environment
 
 error: externally-managed-environment
@@ -110,7 +62,7 @@ sudo: unable to resolve host bm-2209pbv: Name or service not known
 app
 ```
 
-解决方式：
+其实是无伤大雅的，就是有点烦人。解决方式：
 
 ```
 sudo vim /etc/hosts
@@ -128,7 +80,7 @@ sudo vim /etc/hosts
 127.0.0.1   localhost bm-2209pbv
 ```
 
-### 挂载新硬盘
+### 挂载硬盘
 
 ```
 sudo fdisk -l	# 查看设备名
@@ -143,7 +95,11 @@ df -h 	# 检查挂载情况
 /dev/sdb1    /mnt/newdisk    ext4    defaults    0
 ```
 
-### 添加用户
+可参考：[Linux中将多块新硬盘合并成一个，挂载到/mysqldata目录下_linux两块硬盘合并成一块-CSDN博客](https://blog.csdn.net/eagle89/article/details/129388848)
+
+### 用户管理
+
+添加用户
 
 ```
 sudo adduser wdl
@@ -217,6 +173,134 @@ lscpu
 
 
 
+## SSH
+
+### ssh permission
+
+Permissions 0664 for '/home/wdl/.ssh/id_wdl' are too open.
+
+```
+chmod 600 /home/wdl/.ssh/id_wdl
+```
+
+### ssh passphrase
+
+linux
+
+```
+eval $(ssh-agent -s)
+ssh-add ~/.ssh/id_rsa
+ssh-add -l	# 验证是否成功
+```
+
+windows：打开PowerShell
+
+```
+Start-Service ssh-agent
+ssh-add C:\Users\wdl\.ssh\id_rsa
+```
+
+### Host key has changed
+
+ssh -v 报错：
+
+```
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@    WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!     @
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+IT IS POSSIBLE THAT SOMEONE IS DOING SOMETHING NASTY!
+Someone could be eavesdropping on you right now (man-in-the-middle attack)!
+It is also possible that a host key has just been changed.
+The fingerprint for the ED25519 key sent by the remote host is ...
+Please contact your system administrator.
+Add correct host key in C:\\Users\\.../.ssh/known_hosts to get rid of this message.
+Offending ECDSA key in C:\\Users\\.../.ssh/known_hosts:58
+Host key for 192.168.1.79 has changed and you have requested strict checking.
+Host key verification failed.
+```
+
+原因：远程主机的主机密钥（Host Key）发生了变化，而本地的 `known_hosts` 文件中记录的旧密钥与当前服务器的密钥不匹配，导致了 SSH 客户端拒绝连接
+
+解决方案：更新本地的 `known_hosts` 文件，找到并删除与 `192.168.1.79` 相关的行，重新连接
+
+
+
+
+
+## Docker
+
+### Docker permission
+
+```
+docker: permission denied while trying to connect to the Docker daemon socket...
+```
+
+解决方式：
+
+```
+sudo usermod -aG docker wdl
+newgrp docker // or reboot
+```
+
+验证：
+
+```
+groups
+```
+
+如果临时跑命令，也可以直接 sudo docker run
+
+### 命令大全
+
+[Docker 命令大全 | 菜鸟教程](https://www.runoob.com/docker/docker-command-manual.html)
+
+进入docker：
+
+```
+docker exec -it megatron-lm /bin/bash
+```
+
+Q：为什么存在旧容器，但是 docker ps 不显示？
+
+A：docker ps 只默认列出“正在运行”的容器，应该使用 docker ps -a
+
+### Docker 无法识别 GPU
+
+```
+docker: Error response from daemon: could not select device driver "" with capabilities: [[gpu]]
+```
+
+原因：Docker 没有安装或启用 NVIDIA Container Toolkit，导致它无法识别并使用宿主机的 GPU 资源
+
+安装 NVIDIA Container Toolkit：
+
+```
+# 添加官方仓库
+curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+
+curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
+  sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
+  sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+
+# 安装
+sudo apt-get update
+sudo apt-get install -y nvidia-container-toolkit
+```
+
+ 配置 Docker 使用 NVIDIA runtime：
+
+```
+sudo nvidia-ctk runtime configure --runtime=docker
+```
+
+重启 Docker：
+
+```
+sudo systemctl restart docker
+```
+
+
+
 ## Files
 
 ### scp
@@ -224,6 +308,24 @@ lscpu
 ```
 scp -r xxx:path yyy:path
 ```
+
+### scp: Connection refused
+
+```
+scp -P 58107 -r ./data  wdl@10.18.18.107:/home/wdl/
+ssh: connect to host 10.18.18.107 port 58107: Connection refused
+scp: Connection closed
+```
+
+Connection refused 说明 10.18.18.107 的 58107 端口没有 sshd 在监听，或被防火墙拦截
+
+```
+sudo ss -tulnp | grep sshd
+
+tcp   LISTEN 0      4096                    *:22               *:*    users:(("sshd",pid=4790,fd=3),("systemd",pid=1,fd=116))
+```
+
+说明 sshd 仍在默认 22 端口，改为 -P 22 即可。
 
 ### rsync
 
@@ -254,6 +356,22 @@ md5sum test.txt
 ```
 tar -czvf archive.tar file1 file2 directory
 tar -zxvf archive.tar
+```
+
+### 权限
+
+查看权限
+
+```
+ls -l x.sh
+ls -ld /x/y/
+```
+
+修改
+
+```
+sudo chown wdl:wdl x.sh
+sudo chown -R wdl:wdl /x/y
 ```
 
 
@@ -494,39 +612,6 @@ coredumpctl gdb
 ```
 
 默认会查看最近的一个core dump。gdb内用`bt`可以查看调用堆栈，用`fr N`可以去往第N层堆栈
-
-### llama.cpp 打印算子
-
-```
-ggml_barrier(params->threadpool);
-
-if (ith == 0 && strncmp(dst->name, "kq-", 3) == 0) {
-    const struct ggml_tensor *t = src1;
-    FILE *fp = NULL;
-    char file_name[100];
-
-    sprintf(file_name, "data/attention_score_%s.log", dst->name);
-    fp = fopen(file_name, "a+");
-
-    fprintf(fp, "dst->name: %s\n", dst->name);
-    fprintf(fp, "num_kv: %lld, num_tokens: %lld, num_head: %lld\n", t->ne[0], t->ne[1], t->ne[2]);
-
-    for (int i2 = 0; i2 < t->ne[2]; ++i2) {
-        fprintf(fp, "i2: %d\n", i2);
-        for (int i1 = 0; i1 < t->ne[1]; ++i1) {
-            fprintf(fp, "i1: %d\n", i1);
-            for (int i0 = 0; i0 < t->ne[0]; ++i0) {
-                fprintf(fp, "i0: %d: %f\n",
-                    i0, *((float *)((char *)t->data + i2 * t->nb[2] + i1 * t->nb[1] + i0 * t->nb[0])));
-            }
-            fprintf(fp, "\n");
-        }
-        fprintf(fp, "\n\n");
-    }
-
-    fclose(fp);
-}
-```
 
 
 
@@ -1005,3 +1090,37 @@ Triad:          140348.1     0.114197     0.113999     0.114493
 - Scale: a(i) = q * b(i)，一次读，一次写。
 - Add: a(i) = b(i) + c(i)，两次读，一次写。
 - Triad: a(i) = b(i) + q * c(i)，两次读，一次写。这是最常被引用的指标，最能代表真实应用中的内存访问模式
+
+
+### llama.cpp 打印算子
+
+```
+ggml_barrier(params->threadpool);
+
+if (ith == 0 && strncmp(dst->name, "kq-", 3) == 0) {
+    const struct ggml_tensor *t = src1;
+    FILE *fp = NULL;
+    char file_name[100];
+
+    sprintf(file_name, "data/attention_score_%s.log", dst->name);
+    fp = fopen(file_name, "a+");
+
+    fprintf(fp, "dst->name: %s\n", dst->name);
+    fprintf(fp, "num_kv: %lld, num_tokens: %lld, num_head: %lld\n", t->ne[0], t->ne[1], t->ne[2]);
+
+    for (int i2 = 0; i2 < t->ne[2]; ++i2) {
+        fprintf(fp, "i2: %d\n", i2);
+        for (int i1 = 0; i1 < t->ne[1]; ++i1) {
+            fprintf(fp, "i1: %d\n", i1);
+            for (int i0 = 0; i0 < t->ne[0]; ++i0) {
+                fprintf(fp, "i0: %d: %f\n",
+                    i0, *((float *)((char *)t->data + i2 * t->nb[2] + i1 * t->nb[1] + i0 * t->nb[0])));
+            }
+            fprintf(fp, "\n");
+        }
+        fprintf(fp, "\n\n");
+    }
+
+    fclose(fp);
+}
+```
