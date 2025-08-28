@@ -325,7 +325,7 @@ sudo ss -tulnp | grep sshd
 tcp   LISTEN 0      4096                    *:22               *:*    users:(("sshd",pid=4790,fd=3),("systemd",pid=1,fd=116))
 ```
 
-说明 sshd 仍在默认 22 端口，改为 -P 22 即可。
+说明 sshd 仍在默认 22 端口，改为 -P 22 即可
 
 ### rsync
 
@@ -339,10 +339,18 @@ rsync -avzP src dst
 
 **-P**：进度条与断点续传
 
-### 统计文件夹下的所有文件大小
+### 文件夹下的所有文件
+
+统计文件夹下的所有文件大小
 
 ```
 du -sh .
+```
+
+查看所有文件
+
+```
+ls -la
 ```
 
 ### 校验是否损坏
@@ -497,6 +505,508 @@ git push --set-upstream origin new_branch
 git config --global http.proxy  socks5h://127.0.0.1:7890
 git config --global https.proxy socks5h://127.0.0.1:7890
 ```
+
+
+
+## LLM
+
+### 瓶颈计算
+
+- **计算受限时间 (T_compute)** = 总计算量 /  峰值计算能力 (FLOPS)
+- **内存受限时间 (T_memory)** = 总内存访问量 /  内存带宽 (Bytes/s)
+
+**瓶颈判断规则**：如果 T_memory > T_compute，那么该操作就是 **内存受限** 的。
+
+对 CPU 来说：
+
+理论 GFLOPS = (CPU 核心数) * (CPU 频率 GHz) * (每个周期能执行的指令数)
+
+测内存带宽：
+
+```
+# 下载源码
+wget https://www.cs.virginia.edu/stream/FTP/Code/stream.c
+
+# -fopenmp: 开启 OpenMP 支持，利用所有 CPU 核心去访问内存，这才能测出最大带宽
+# -DSTREAM_ARRAY_SIZE: 设置一个足够大的数组，必须远大于你所有 CPU Cache 的总和，以确保测试的是内存而非缓存。例如设置为 8GB (2^33 bytes)
+gcc -O3 -fopenmp -DSTREAM_ARRAY_SIZE=8000000000 stream.c -o stream_test
+
+export OMP_NUM_THREADS=$(nproc)
+./stream_test
+```
+
+输出结果：
+
+```
+-------------------------------------------------------------
+Function    Best Rate MB/s  Avg time     Min time     Max time
+Copy:           125331.4     0.102223     0.101890     0.102802
+Scale:          125430.2     0.102196     0.101810     0.102555
+Add:            139682.4     0.114755     0.114545     0.114947
+Triad:          140348.1     0.114197     0.113999     0.114493
+-------------------------------------------------------------
+```
+
+- Copy: a(i) = b(i)，测试一次读和一次写的带宽。
+- Scale: a(i) = q * b(i)，一次读，一次写。
+- Add: a(i) = b(i) + c(i)，两次读，一次写。
+- Triad: a(i) = b(i) + q * c(i)，两次读，一次写。这是最常被引用的指标，最能代表真实应用中的内存访问模式
+
+
+### llama.cpp 打印算子
+
+```
+ggml_barrier(params->threadpool);
+
+if (ith == 0 && strncmp(dst->name, "kq-", 3) == 0) {
+    const struct ggml_tensor *t = src1;
+    FILE *fp = NULL;
+    char file_name[100];
+
+    sprintf(file_name, "data/attention_score_%s.log", dst->name);
+    fp = fopen(file_name, "a+");
+
+    fprintf(fp, "dst->name: %s\n", dst->name);
+    fprintf(fp, "num_kv: %lld, num_tokens: %lld, num_head: %lld\n", t->ne[0], t->ne[1], t->ne[2]);
+
+    for (int i2 = 0; i2 < t->ne[2]; ++i2) {
+        fprintf(fp, "i2: %d\n", i2);
+        for (int i1 = 0; i1 < t->ne[1]; ++i1) {
+            fprintf(fp, "i1: %d\n", i1);
+            for (int i0 = 0; i0 < t->ne[0]; ++i0) {
+                fprintf(fp, "i0: %d: %f\n",
+                    i0, *((float *)((char *)t->data + i2 * t->nb[2] + i1 * t->nb[1] + i0 * t->nb[0])));
+            }
+            fprintf(fp, "\n");
+        }
+        fprintf(fp, "\n\n");
+    }
+
+    fclose(fp);
+}
+```
+
+### Megatron-LM 测试
+
+#### 单机多卡：Dense 模型
+
+```
+# under /home/developer/wdl
+git clone https://github.com/NVIDIA/Megatron-LM.git
+GIT_LFS_SKIP_SMUDGE=1 git clone https://hf-mirror.com/openai-community/gpt2
+```
+
+Docker创建：
+
+```
+docker run -it --name megatron-lm   --gpus=all   --ipc=host   -v /home/wdl:/workspace   -w /workspace   nvcr.io/nvidia/pytorch:24.01-py3   /bin/bash
+```
+
+数据预处理：
+
+```
+mkdir data
+cd data
+wget https://hf-mirror.com/bigscience/misc-test-data/resolve/main/stas/oscar-1GB.jsonl.xz
+xz -d oscar-1GB.jsonl.xz
+cd ..
+
+python megatron-lm/tools/preprocess_data.py \
+  --input ./data/oscar-1GB.jsonl \
+  --output-prefix meg-gpt2 \
+  --vocab-file ./gpt2/vocab.json \
+  --tokenizer-type GPT2BPETokenizer \
+  --merge-file ./gpt2/merges.txt \
+  --append-eod \
+  --workers 8
+  
+mv meg-gpt2_text_document.bin data/
+mv meg-gpt2_text_document.idx data/
+```
+
+截至目前的目录结构：
+
+```
+root@a6a69636d44e:/workspace# ls -la
+total 20
+drwxrwxr-x  5 1001 1001 4096 Apr 27 04:22 .
+drwxr-xr-x  1 root root 4096 Apr 27 04:07 ..
+drwxr-xr-x  2 root root 4096 Apr 27 04:22 data
+drwxrwxr-x  4 1001 1001 4096 Apr 27 02:53 gpt2
+drwxrwxr-x 14 1001 1001 4096 Apr 27 02:25 megatron-lm
+```
+
+正式训练：
+
+```
+cd ./megatron-lm/examples/gpt3
+cp train_gpt3_175b_distributed.sh train_gpt3_test.sh
+vim /workspace/megatron-lm/examples/gpt3/train_gpt3_test.sh
+```
+
+Dense 模型参数量约 6.6B，显存占用约 90GB，配置文件如下：
+
+```
+#!/bin/bash
+
+export CUDA_DEVICE_MAX_CONNECTIONS=1
+
+GPUS_PER_NODE=8
+# Change for multinode config
+MASTER_ADDR=localhost
+MASTER_PORT=6000
+NUM_NODES=1
+NODE_RANK=0
+WORLD_SIZE=$(($GPUS_PER_NODE*$NUM_NODES))
+
+CHECKPOINT_PATH="/workspace/checkpoint"
+TENSORBOARD_LOGS_PATH="/workspace/logs"
+VOCAB_FILE="/workspace/gpt2/vocab.json"
+MERGE_FILE="/workspace/gpt2/merges.txt"
+DATA_PATH="/workspace/data/meg-gpt2_text_document"
+
+DISTRIBUTED_ARGS=(
+    --nproc_per_node $GPUS_PER_NODE
+    --nnodes $NUM_NODES
+    --master_addr $MASTER_ADDR
+    --master_port $MASTER_PORT
+)
+
+GPT_MODEL_ARGS=(
+    --num-layers 32
+    --hidden-size 4096
+    --num-attention-heads 32
+    --seq-length 1024
+    --max-position-embeddings 2048
+    --attention-backend auto # Can use (flash/fused/unfused/local)
+)
+
+TRAINING_ARGS=(
+    --micro-batch-size 1
+    --global-batch-size 1536
+    # --rampup-batch-size 16 16 5859375
+    --train-iters 10
+    --weight-decay 0.1
+    --adam-beta1 0.9
+    --adam-beta2 0.95
+    --init-method-std 0.006
+    --clip-grad 1.0
+    --fp16
+    --lr 6.0e-5
+    --lr-decay-style cosine
+    --min-lr 6.0e-6
+    --lr-warmup-fraction .001
+    --lr-decay-iters 430000
+)
+
+MODEL_PARALLEL_ARGS=(
+	--tensor-model-parallel-size 1
+	--pipeline-model-parallel-size 1
+)
+
+DATA_ARGS=(
+    --data-path $DATA_PATH
+    --vocab-file $VOCAB_FILE
+    --merge-file $MERGE_FILE
+    --split 949,50,1
+)
+
+EVAL_AND_LOGGING_ARGS=(
+    --log-interval 10
+    --save-interval 10000
+    --eval-interval 1000
+    --save $CHECKPOINT_PATH
+    --load $CHECKPOINT_PATH
+    --eval-iters 10
+    --tensorboard-dir $TENSORBOARD_LOGS_PATH
+)
+
+torchrun ${DISTRIBUTED_ARGS[@]} pretrain_gpt.py \
+    ${GPT_MODEL_ARGS[@]} \
+    ${TRAINING_ARGS[@]} \
+    ${MODEL_PARALLEL_ARGS[@]} \
+    ${DATA_ARGS[@]} \
+    ${EVAL_AND_LOGGING_ARGS[@]}
+
+```
+
+#### 单机多卡：MoE 模型
+
+MoE 模型参数量 20BA2B，显存占用约 81GB，配置文件如下：
+
+```
+#!/bin/bash
+
+export CUDA_DEVICE_MAX_CONNECTIONS=1
+
+GPUS_PER_NODE=8
+# Change for multinode config
+MASTER_ADDR=localhost
+MASTER_PORT=6000
+NUM_NODES=1
+NODE_RANK=0
+WORLD_SIZE=$(($GPUS_PER_NODE*$NUM_NODES))
+
+CHECKPOINT_PATH="/workspace/checkpoint"
+TENSORBOARD_LOGS_PATH="/workspace/logs"
+VOCAB_FILE="/workspace/gpt2/vocab.json"
+MERGE_FILE="/workspace/gpt2/merges.txt"
+DATA_PATH="/workspace/data/meg-gpt2_text_document"
+
+DISTRIBUTED_ARGS=(
+    --nproc_per_node $GPUS_PER_NODE
+    --nnodes $NUM_NODES
+    --master_addr $MASTER_ADDR
+    --master_port $MASTER_PORT
+)
+
+GPT_MODEL_ARGS=(
+    --no-masked-softmax-fusion
+    --disable-bias-linear
+    --untie-embeddings-and-output-weights
+    --position-embedding-type rope
+    --no-rope-fusion
+    --normalization RMSNorm
+    --swiglu
+    --num-layers 32
+    --hidden-size 2048
+    --ffn-hidden-size 6144
+    --num-attention-heads 32
+    --group-query-attention
+    --num-query-groups 4
+    --kv-channels 128
+    # --qk-layernorm
+    --num-experts 128
+    --moe-ffn-hidden-size 768
+    --moe-router-topk 8
+    --moe-router-dtype fp32
+    --moe-aux-loss-coeff 1e-3
+    --moe-token-dispatcher-type alltoall
+    --moe-router-load-balancing-type aux_loss
+    --use-mcore-models
+    --rotary-percent 1.0
+    --rotary-base 1000000
+    --no-bias-swiglu-fusion
+    --seq-length 1024
+    --max-position-embeddings 2048
+    --attention-backend auto # Can use (flash/fused/unfused/local)
+)
+
+TRAINING_ARGS=(
+    --micro-batch-size 1
+    --global-batch-size 1536
+    # --rampup-batch-size 16 16 5859375
+    --train-iters 10
+    --weight-decay 0.1
+    --adam-beta1 0.9
+    --adam-beta2 0.95
+    --init-method-std 0.006
+    --clip-grad 1.0
+    --bf16
+    --lr 6.0e-5
+    --lr-decay-style cosine
+    --min-lr 6.0e-6
+    --lr-warmup-fraction .001
+    --lr-decay-iters 430000
+)
+
+MODEL_PARALLEL_ARGS=(
+	--tensor-model-parallel-size 1
+	--pipeline-model-parallel-size 1
+    --expert-model-parallel-size 8
+)
+
+DATA_ARGS=(
+    --data-path $DATA_PATH
+    --vocab-file $VOCAB_FILE
+    --merge-file $MERGE_FILE
+    --split 949,50,1
+)
+
+EVAL_AND_LOGGING_ARGS=(
+    --log-interval 10
+    --save-interval 10000
+    --eval-interval 1000
+    --save $CHECKPOINT_PATH
+    --load $CHECKPOINT_PATH
+    --eval-iters 10
+    --tensorboard-dir $TENSORBOARD_LOGS_PATH
+)
+
+torchrun ${DISTRIBUTED_ARGS[@]} pretrain_gpt.py \
+    ${GPT_MODEL_ARGS[@]} \
+    ${TRAINING_ARGS[@]} \
+    ${MODEL_PARALLEL_ARGS[@]} \
+    ${DATA_ARGS[@]} \
+    ${EVAL_AND_LOGGING_ARGS[@]}
+
+```
+
+#### 多机训练
+
+```
+docker run -it --name megatron-lm   --gpus=all   --ipc=host --network=host --privileged=true -v /home/wdl:/workspace   -w /workspace   nvcr.io/nvidia/pytorch:24.01-py3   /bin/bash
+```
+
+解析：
+
+1. --network=host 让容器直接用宿主机网卡，IP、端口全部可见
+2. --privileged=true，如果没有这条的话，docker 内用不了 IB。ibv_devices 可查看可用 IB，如果不可用，在接下来的脚本中，如果设置 NCCL_DEBUG=INFO，日志中会出现 NCCL INFO NET/IB: No device found. --privileged=true 相当于把 /dev 也挂载了进去，就能使用 IB
+
+配置文件（以node_rank=0为例）：
+
+```
+#!/bin/bash
+set -ex
+
+# Runs the "175B" parameter model
+
+export CUDA_DEVICE_MAX_CONNECTIONS=1
+# export NCCL_DEBUG=INFO
+export TORCH_DISTRIBUTED_BACKEND=nccl
+export NCCL_SOCKET_IFNAME=bond0
+export GLOO_SOCKET_IFNAME=bond0
+export SKIP_P2P_PING=false
+export DISTRIBUTED_JOB=true
+export NCCL_IB_HCA=mlx5_0,mlx5_1,mlx5_2,mlx5_4
+
+GPUS_PER_NODE=8
+MASTER_ADDR=${MASTER_ADDR:-10.18.18.106}
+MASTER_PORT=${MASTER_PORT:-6000}
+NUM_NODES=${NUM_NODES:-2}
+NODE_RANK=${NODE_RANK:-0}
+WORLD_SIZE=$(($GPUS_PER_NODE * $NUM_NODES))
+
+CHECKPOINT_PATH="/workspace/checkpoint"
+TENSORBOARD_LOGS_PATH="/workspace/logs"
+VOCAB_FILE="/workspace/gpt2/vocab.json"
+MERGE_FILE="/workspace/gpt2/merges.txt"
+DATA_PATH="/workspace/data/meg-gpt2_text_document"
+
+DISTRIBUTED_ARGS=(
+    --nproc_per_node $GPUS_PER_NODE
+    --nnodes $NUM_NODES
+    --master_addr $MASTER_ADDR
+    --master_port $MASTER_PORT
+    --node_rank $NODE_RANK
+)
+
+GPT_MODEL_ARGS=(
+    --no-masked-softmax-fusion
+    --disable-bias-linear
+    --untie-embeddings-and-output-weights
+    --position-embedding-type rope
+    --no-rope-fusion
+    --normalization RMSNorm
+    --swiglu
+    --num-layers 32
+    --hidden-size 2048
+    --ffn-hidden-size 6144
+    --num-attention-heads 32
+    --group-query-attention
+    --num-query-groups 4
+    --kv-channels 128
+    # --qk-layernorm
+    --num-experts 128
+    --moe-ffn-hidden-size 768
+    --moe-router-topk 8
+    --moe-router-dtype fp32
+    --moe-aux-loss-coeff 1e-3
+    --moe-token-dispatcher-type alltoall
+    --moe-router-load-balancing-type aux_loss
+    # --use-mcore-models
+    --rotary-percent 1.0
+    --rotary-base 1000000
+    --no-bias-swiglu-fusion
+    --seq-length 1024
+    --max-position-embeddings 2048
+    --attention-backend auto # Can use (flash/fused/unfused/local)
+)
+
+TRAINING_ARGS=(
+    --micro-batch-size 1
+    --global-batch-size 1536
+    # --rampup-batch-size 16 16 5859375
+    --train-iters 30
+    --weight-decay 0.1
+    --adam-beta1 0.9
+    --adam-beta2 0.95
+    --init-method-std 0.006
+    --clip-grad 1.0
+    --bf16
+    --lr 6.0e-5
+    --lr-decay-style cosine
+    --min-lr 6.0e-6
+    --lr-warmup-fraction .001
+    --lr-decay-iters 430000
+)
+
+MODEL_PARALLEL_ARGS=(
+	--tensor-model-parallel-size 1
+	--pipeline-model-parallel-size 1
+    --expert-model-parallel-size 8
+)
+
+DATA_ARGS=(
+    --data-path $DATA_PATH
+    --vocab-file $VOCAB_FILE
+    --merge-file $MERGE_FILE
+    --split 949,50,1
+)
+
+EVAL_AND_LOGGING_ARGS=(
+    --log-interval 10
+    --save-interval 10000
+    --eval-interval 1000
+    --save $CHECKPOINT_PATH
+    --load $CHECKPOINT_PATH
+    --eval-iters 1
+    --tensorboard-dir $TENSORBOARD_LOGS_PATH
+)
+
+torchrun ${DISTRIBUTED_ARGS[@]} pretrain_gpt.py \
+    ${GPT_MODEL_ARGS[@]} \
+    ${TRAINING_ARGS[@]} \
+    ${MODEL_PARALLEL_ARGS[@]} \
+    ${DATA_ARGS[@]} \
+    ${EVAL_AND_LOGGING_ARGS[@]}
+```
+
+解析：
+
+1. 注意比单机脚本多一行 --node_rank $NODE_RANK
+2. MASTER_ADDR 为主节点实际 IP，PORT 随意
+3. export NCCL_SOCKET_IFNAME=bond0，这里根据实际网卡名修改，也可能是 eth0，用 ifconfig 找到 inet 和主 IP 一致的那个网卡名就是
+4. export GLOO_SOCKET_IFNAME=bond0，否则报错：RuntimeError: Gloo connectFullMesh failed …
+5. export NCCL_IB_HCA=mlx5_0,mlx5_1,mlx5_2,mlx5_4，指定使用的 IB，不使用 mlx5_3 原因见“集群网络”章节
+
+6. Megatron-LM 启动时会在 --data-path 目录下自动生成一套 index + cache 文件，文件名中包含数据集哈希值。如果两节点的存储不共享，其他节点上会找不到 cache 文件。解决方法是主节点处理完文件之后，手动传到其他节点上即可
+
+
+
+### 集群网络
+
+查看网卡拓扑：
+
+```
+nvidia-smi topo -m
+```
+
+结果：
+
+![image-20250828133905899](index.assets/image-20250828133905899.png)
+
+![image-20250828133927135](index.assets/image-20250828133927135.png)
+
+![image-20250828134703232](index.assets/image-20250828134703232.png)
+
+跨机通信就是：卡0->NIC->NIC->卡15
+
+NIC0-4 就是 Infiniband，ibstat 命令可以看信息
+
+![image-20250828134148787](index.assets/image-20250828134148787.png)
+
+Rate: 400 就代表 400gbps，可以发现 mlx5_3 rate 只有 200，是存储IB，需要跳过
 
 
 
@@ -1047,80 +1557,24 @@ n_experts = self.hparams.get("num_experts", self.hparams.get("moe_num_experts"))
 
 
 
-## LLM
+## 其他
 
-### 瓶颈计算
+### 检查打通网络
 
-- **计算受限时间 (T_compute)** = 总计算量 /  峰值计算能力 (FLOPS)
-- **内存受限时间 (T_memory)** = 总内存访问量 /  内存带宽 (Bytes/s)
-
-**瓶颈判断规则**：如果 T_memory > T_compute，那么该操作就是 **内存受限** 的。
-
-对 CPU 来说：
-
-理论 GFLOPS = (CPU 核心数) * (CPU 频率 GHz) * (每个周期能执行的指令数)
-
-测内存带宽：
+为了确定另一个节可以连通到 10.18.18.106:5678
 
 ```
-# 下载源码
-wget https://www.cs.virginia.edu/stream/FTP/Code/stream.c
-
-# -fopenmp: 开启 OpenMP 支持，利用所有 CPU 核心去访问内存，这才能测出最大带宽
-# -DSTREAM_ARRAY_SIZE: 设置一个足够大的数组，必须远大于你所有 CPU Cache 的总和，以确保测试的是内存而非缓存。例如设置为 8GB (2^33 bytes)
-gcc -O3 -fopenmp -DSTREAM_ARRAY_SIZE=8000000000 stream.c -o stream_test
-
-export OMP_NUM_THREADS=$(nproc)
-./stream_test
+# 在 10.18.18.106 上执行
+nc -lv 5678        # 或者：nc -l 5678
 ```
 
-输出结果：
+看到提示 `Listening on 0.0.0.0 5678` 就说明服务已就绪
 
 ```
--------------------------------------------------------------
-Function    Best Rate MB/s  Avg time     Min time     Max time
-Copy:           125331.4     0.102223     0.101890     0.102802
-Scale:          125430.2     0.102196     0.101810     0.102555
-Add:            139682.4     0.114755     0.114545     0.114947
-Triad:          140348.1     0.114197     0.113999     0.114493
--------------------------------------------------------------
+# 在另一台节点执行
+telnet 10.18.18.106 5678
+# 如果没有 telnet，也可以用 nc
+nc -vz 10.18.18.106 5678
 ```
 
-- Copy: a(i) = b(i)，测试一次读和一次写的带宽。
-- Scale: a(i) = q * b(i)，一次读，一次写。
-- Add: a(i) = b(i) + c(i)，两次读，一次写。
-- Triad: a(i) = b(i) + q * c(i)，两次读，一次写。这是最常被引用的指标，最能代表真实应用中的内存访问模式
-
-
-### llama.cpp 打印算子
-
-```
-ggml_barrier(params->threadpool);
-
-if (ith == 0 && strncmp(dst->name, "kq-", 3) == 0) {
-    const struct ggml_tensor *t = src1;
-    FILE *fp = NULL;
-    char file_name[100];
-
-    sprintf(file_name, "data/attention_score_%s.log", dst->name);
-    fp = fopen(file_name, "a+");
-
-    fprintf(fp, "dst->name: %s\n", dst->name);
-    fprintf(fp, "num_kv: %lld, num_tokens: %lld, num_head: %lld\n", t->ne[0], t->ne[1], t->ne[2]);
-
-    for (int i2 = 0; i2 < t->ne[2]; ++i2) {
-        fprintf(fp, "i2: %d\n", i2);
-        for (int i1 = 0; i1 < t->ne[1]; ++i1) {
-            fprintf(fp, "i1: %d\n", i1);
-            for (int i0 = 0; i0 < t->ne[0]; ++i0) {
-                fprintf(fp, "i0: %d: %f\n",
-                    i0, *((float *)((char *)t->data + i2 * t->nb[2] + i1 * t->nb[1] + i0 * t->nb[0])));
-            }
-            fprintf(fp, "\n");
-        }
-        fprintf(fp, "\n\n");
-    }
-
-    fclose(fp);
-}
-```
+显示成功即可
