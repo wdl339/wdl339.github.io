@@ -125,24 +125,6 @@ sudo deluser wdl
 sudo deluser --remove-home wdl	# 删除主目录与文件
 ```
 
-### Conda
-
-![image-20250702155235670](index.assets/image-20250702155235670.png)
-
-注意：conda create 的时候指定 python 版本，可以避免出现 error: externally-managed-environment
-
-### 清华源
-
-```
-pip3 install numpy -i https://pypi.tuna.tsinghua.edu.cn/simple
-```
-
-```
-conda config --add channels https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/free/
-conda config --add channels https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge
-conda config --add channels https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/msys2/
-```
-
 ### 查看系统架构
 
 ```
@@ -170,6 +152,59 @@ lscpu
 - Model name: CPU 型号，例如 Intel(R) Xeon(R) Gold 6248R。
 - CPU max MHz: 最大睿频 (Turbo Boost) 频率。
 - Flags: CPU 支持的指令集
+
+### Tmux
+
+参考：[Linux tmux 命令 | 菜鸟教程](https://www.runoob.com/linux/linux-comm-tmux.html)
+
+![image-20250830230330393](index.assets/image-20250830230330393.png)
+
+在 tmux 窗口中上下滑动、复制粘贴：
+
+1. 在 ~/.tmux.conf 中添加：` set -g mouse on`
+2. 重新加载 tmux 配置：` tmux source-file ~/.tmux.conf`
+3. 现在可以直接用鼠标选择文本，选择的文本都会被自动复制下来
+
+
+
+## Conda
+
+### 下载
+
+```
+wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+bash Miniconda3-latest-Linux-x86_64.sh
+```
+
+### 命令大全
+
+![image-20250702155235670](index.assets/image-20250702155235670.png)
+
+注意：conda create 的时候指定 python 版本，可以避免出现 error: externally-managed-environment
+
+### 清华源
+
+pip 临时使用清华源：
+
+```
+pip3 install numpy -i https://pypi.tuna.tsinghua.edu.cn/simple
+```
+
+pip 永久使用：
+
+```
+mkdir -p ~/.pip
+echo -e "[global]\nindex-url = https://pypi.tuna.tsinghua.edu.cn/simple" > ~/.pip/pip.conf
+```
+
+Conda：
+
+```
+conda config --add channels https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main
+conda config --add channels https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/free
+conda config --add channels https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/r
+conda config --set show_channel_urls yes
+```
 
 
 
@@ -229,7 +264,25 @@ Host key verification failed.
 
 ## Docker
 
-### Docker permission
+### Connection fail
+
+```
+Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?
+```
+
+解决办法：
+
+```
+systemctl status docker
+```
+
+如果并非 active：
+
+```
+sudo systemctl start docker
+```
+
+### Permission denied
 
 ```
 docker: permission denied while trying to connect to the Docker daemon socket...
@@ -339,7 +392,7 @@ rsync -avzP src dst
 
 **-P**：进度条与断点续传
 
-### 文件夹下的所有文件
+### 排查空间占用
 
 统计文件夹下的所有文件大小
 
@@ -347,10 +400,16 @@ rsync -avzP src dst
 du -sh .
 ```
 
-查看所有文件
+快速查看一级目录占用：
 
 ```
-ls -la
+sudo du -xh --max-depth=1 / 2>/dev/null | sort -h
+```
+
+假设上一步看到 /var 最大，继续：
+
+```
+sudo du -xh --max-depth=1 /var 2>/dev/null | sort -h
 ```
 
 ### 校验是否损坏
@@ -375,12 +434,14 @@ ls -l x.sh
 ls -ld /x/y/
 ```
 
-修改
+修改拥有者
 
 ```
 sudo chown wdl:wdl x.sh
 sudo chown -R wdl:wdl /x/y
 ```
+
+修改所有人可读可访问可执行：`chmod 777`
 
 
 
@@ -420,7 +481,11 @@ git diff --name-only .. ..
 ### git submodule
 
 ```
+# clone
 git submodule update --init --recursive
+
+# 添加
+git submodule add ...
 ```
 
 ### 临时保存工作进度
@@ -477,6 +542,12 @@ git push origin new_branch
 git push --set-upstream origin new_branch
 ```
 
+### 修改远端仓库
+
+```
+git remote set-url origin ...
+```
+
 ### 无法连接到 github.com
 
 首先尝试 curl -v https://github.com，输出“详细信息: GET with 0-byte payload”
@@ -504,6 +575,18 @@ git push --set-upstream origin new_branch
 ```
 git config --global http.proxy  socks5h://127.0.0.1:7890
 git config --global https.proxy socks5h://127.0.0.1:7890
+```
+
+### git lfs
+
+```
+sudo apt-get install git-lfs
+```
+
+### pip install git 项目
+
+```
+pip install git+https://github.com/NICTA/pyairports.git
 ```
 
 
@@ -730,6 +813,18 @@ torchrun ${DISTRIBUTED_ARGS[@]} pretrain_gpt.py \
 
 ```
 
+qwen2.5-7b 参数参考：
+
+```
+--num-layers 28
+--hidden-size 3584
+--ffn-hidden-size 18944
+--num-attention-heads 28
+--group-query-attention
+--num-query-groups 4
+--kv-channels 128
+```
+
 #### 单机多卡：MoE 模型
 
 MoE 模型参数量 20BA2B，显存占用约 81GB，配置文件如下：
@@ -850,8 +945,20 @@ docker run -it --name megatron-lm   --gpus=all   --ipc=host --network=host --pri
 
 解析：
 
-1. --network=host 让容器直接用宿主机网卡，IP、端口全部可见
-2. --privileged=true，如果没有这条的话，docker 内用不了 IB。ibv_devices 可查看可用 IB，如果不可用，在接下来的脚本中，如果设置 NCCL_DEBUG=INFO，日志中会出现 NCCL INFO NET/IB: No device found. --privileged=true 相当于把 /dev 也挂载了进去，就能使用 IB
+1. --ipc=host 把宿主机的 IPC 命名空间（共享内存、信号量、消息队列等）整个搬进容器，/dev/shm 大小 = 宿主机 /dev/shm 大小，不再受 64 MB 默认或 --shm-size 限制，在PyTorch DataLoader 或 NCCL 多卡通信等依赖足够共享内存的场景，直接“免调参”不会炸
+2. --network=host 让容器直接用宿主机网卡，IP、端口全部可见
+3. --privileged=true，如果没有这条的话，docker 内用不了 IB。ibv_devices 可查看可用 IB，如果不可用，在接下来的脚本中，如果设置 NCCL_DEBUG=INFO，日志中会出现 NCCL INFO NET/IB: No device found. --privileged=true 相当于把 /dev 也挂载了进去，就能使用 IB
+4. -v 可以有多项；-w /workspace 给容器设置工作目录，相当于 cd /workspace 后再启动主进程
+
+这里也可以：
+
+```
+docker create --name megatron-lm ... <image:tag> sleep infinity
+docker start megatron-lm
+docker exec -it megatron-lm bash
+```
+
+好处是在这样的 bash 里 exit 之后，docker 仍然可以继续运行
 
 配置文件（以node_rank=0为例）：
 
@@ -984,6 +1091,8 @@ torchrun ${DISTRIBUTED_ARGS[@]} pretrain_gpt.py \
 
 
 
+
+
 ### 集群网络
 
 查看网卡拓扑：
@@ -1007,6 +1116,147 @@ NIC0-4 就是 Infiniband，ibstat 命令可以看信息
 ![image-20250828134148787](index.assets/image-20250828134148787.png)
 
 Rate: 400 就代表 400gbps，可以发现 mlx5_3 rate 只有 200，是存储IB，需要跳过
+
+
+
+### verl 多机多卡训练
+
+ray 启动：
+
+```
+# 环境变量
+export TORCH_DISTRIBUTED_BACKEND=nccl
+export NCCL_SOCKET_IFNAME=bond0
+export GLOO_SOCKET_IFNAME=bond0
+export NCCL_IB_HCA=mlx5_0,mlx5_1,mlx5_2,mlx5_4
+# 主节点
+ray start --head --port=8888 --dashboard-host=0.0.0.0
+# 分节点
+ray start --address='10.18.18.106:8888'
+# 确认
+ray status
+# 关闭
+ray stop
+```
+
+然后再跑训练脚本：
+
+```
+...
+python3 -m verl.trainer.main_ppo \
+    --config_path=$CONFIG_PATH
+```
+
+
+
+### flash_attn 安装
+
+正常 pip install 很慢，直接下载 whl：
+
+```
+wget https://github.com/Dao-AILab/flash-attention/releases/download/v2.7.4.post1/flash_attn-2.7.4.post1+cu12torch2.6cxx11abiFALSE-cp310-cp310-linux_x86_64.whl
+
+pip install flash_attn-2.7.4.post1+cu12torch2.6cxx11abiFALSE-cp310-cp310-linux_x86_64.whl
+```
+
+注意 cuda, torch, python 版本对应
+
+常见报错：
+
+```
+flash_attn_2_cuda.cpython-310-x86_64-linux-gnu.so: undefined symbol...
+```
+
+解决方案：下载 abiFALSE 的版本，而不是 abiTRUE
+
+
+
+### CUDA Toolkit 安装
+
+访问 https://developer.nvidia.com/cuda-downloads ，注意版本一致
+
+![image-20250903152704281](index.assets/image-20250903152704281.png)
+
+如果安装失败，查看 /var/log/nvidia-installer.log：
+
+```
+WARNING: An NVIDIA kernel module 'nvidia' appears to be already loaded in your kernel. This may be because it is in use (for example, by an X server, a CUDA program, or the NVIDIA Persistence Daemon), but this may also happen if your kernel was configured without support for module unloading. Some of the sanity checks that nvidia-installer performs to detect potential installation problems are not possible while an NVIDIA kernel module is running.
+-> Would you like to continue installation and skip the sanity checks? If not, please abort the installation, then close any programs which may be using the NVIDIA GPU(s), and attempt installation again. (Answer: Abort installation)
+ERROR: Installation has failed.
+```
+
+说明 nvidia 内核模块已经加载，如果这时候问 AI 解决办法，可能会让你关闭图形界面。但实际上系统中已经安装了 nvidia 驱动，在安装的时候选择不安装 Driver 即可：
+
+![image-20250903153937071](index.assets/image-20250903153937071.png)
+
+在 .bashrc 中：
+
+```
+export PATH=$PATH:/usr/local/cuda-12.9/bin
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/cuda-12.9/lib64
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/cuda-12.9/extras/CUPTI/lib64
+```
+
+然后
+
+```
+source ~/.bashrc
+nvcc --version
+```
+
+
+
+### wandb
+
+检查是否可用：
+
+```
+python -c "import wandb, time; wandb.init(project='test', name='timeout_check'); print('ok'); time.sleep(3); wandb.finish()"
+```
+
+
+
+### Benchmark
+
+#### F1 分数
+
+**精确率 (Precision)**: 在模型**生成的所有词元**中，有多少是与**参考答案**中的词元相匹配的？
+
+- **通俗理解**：模型说的话有多大的比例是“对”的？高精确率意味着模型生成的内容很少有废话或错误信息
+- **公式思想**: (匹配的词元数) / (生成文本的总词元数)
+
+**召回率 (Recall)**: 在**参考答案的所有词元**中，有多少被**模型成功生成**了？
+
+- **通俗理解**：参考答案里的要点，模型覆盖了多少？高召回率意味着模型生成的内容很全面，没有遗漏关键信息
+- **公式思想**: (匹配的词元数) / (参考文本的总词元数)
+
+F1分数是精确率和召回率的调和平均数：
+
+- **F1分数 (F1-Score)**:
+  - **公式**: 2 * (精确率 * 召回率) / (精确率 + 召回率)
+  - **作用**：它提供了一个综合性的分数。如果模型只生成了几个正确的词（精确率高但召回率低），或者生成了一大堆词但很多都无关紧要（召回率高但精确率低），F1分数都会很低。只有当两者都高时，F1分数才会高
+
+例子：
+
+- **参考文本 (Reference Text)**: "the cat sat on the mat"
+  - 包含的词元：{the, cat, sat, on, mat}
+- **模型生成的文本 (Generated Text)**: "the cat sat on a mat"
+  - 包含的词元：{the, cat, sat, on, a, mat}
+
+- **精确率**: 模型生成了 6 个词，其中 5 个是匹配的；Precision = 5 / 6 = 0.83
+- **召回率**: 参考文本有 5 个词，模型全部匹配了；Recall = 5 / 5 = 1.0
+
+- **F1 score** = 2 * (0.83 * 1.0) / (0.83 + 1.0) = 1.66 / 1.83 ≈ 0.91
+
+
+
+#### mean@xx
+
+- mean@30: 指的是这30次尝试的平均表现。例如，acc/mean@30 就是这30次尝试的平均准确率
+- maj@30: maj 是 "majority"（多数）的缩写。这通常与一种叫做“多数投票”的策略有关。例如，模型生成30个答案，选择其中出现次数最多的那个作为最终答案，然后评估这个最终答案的准确率
+- best@30: 指的是在这30次尝试中最好的一次表现。例如，acc/best@30 就是这30次尝试中最高的一次准确率
+
+
 
 
 
@@ -1126,6 +1376,18 @@ coredumpctl gdb
 
 
 ## VSCode
+
+### 无法下载 .vscode-server
+
+有时候经常出现 $HOME 爆满，自己的文件已经删得不能再删了，别人的文件也动不了。这时候 vscode 连接就会因为空间不足而失败
+
+解决办法：先命令行 ssh 上去，然后：
+
+```
+sudo mount --bind /mnt/wdl/vscode-server /home/wdl/.vscode-server
+```
+
+这样 .vscode-server 就会下载到指定的路径下了
 
 ### 函数跳转
 
@@ -1519,6 +1781,12 @@ snprintf(filename, sizeof(filename), "logits_dump_%lld.txt", gen_len);
 
 ## Python Coding
 
+### 命令行 Python 程序
+
+```
+python -c "import torch; print(torch.cuda.device_count() > 0); print(torch.cuda.is_available())"
+```
+
 ### 文件读写
 
 with 语句块结束时，无论是否发生异常，Python 都会自动关闭文件
@@ -1557,7 +1825,7 @@ n_experts = self.hparams.get("num_experts", self.hparams.get("moe_num_experts"))
 
 
 
-## 其他
+## Network
 
 ### 检查打通网络
 
@@ -1578,3 +1846,14 @@ nc -vz 10.18.18.106 5678
 ```
 
 显示成功即可
+
+
+
+### 查看占用端口程序
+
+```
+sudo lsof -i :8000
+```
+
+
+
