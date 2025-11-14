@@ -165,6 +165,13 @@ lscpu
 2. 重新加载 tmux 配置：` tmux source-file ~/.tmux.conf`
 3. 现在可以直接用鼠标选择文本，选择的文本都会被自动复制下来
 
+### 查杀僵尸进程
+
+```
+ps -eo pid,ppid,stat,comm | grep -E 'Z|defunct'
+kill -9 <PPID>
+```
+
 
 
 ## Conda
@@ -593,81 +600,89 @@ pip install git+https://github.com/NICTA/pyairports.git
 
 ## LLM
 
-### 瓶颈计算
+### 多机多卡联通性测试
 
-- **计算受限时间 (T_compute)** = 总计算量 /  峰值计算能力 (FLOPS)
-- **内存受限时间 (T_memory)** = 总内存访问量 /  内存带宽 (Bytes/s)
+参考：[分布式部署实践：多机多卡联通性测试 - 知乎](https://zhuanlan.zhihu.com/p/1914325502921016042)
 
-**瓶颈判断规则**：如果 T_memory > T_compute，那么该操作就是 **内存受限** 的。
-
-对 CPU 来说：
-
-理论 GFLOPS = (CPU 核心数) * (CPU 频率 GHz) * (每个周期能执行的指令数)
-
-测内存带宽：
+使用来自 [Troubleshooting — vLLM](https://docs.vllm.ai/en/v0.8.0/getting_started/troubleshooting.html#troubleshooting-incorrect-hardware-driver) 中的脚本：
 
 ```
-# 下载源码
-wget https://www.cs.virginia.edu/stream/FTP/Code/stream.c
+# Test PyTorch NCCL
+import torch
+import torch.distributed as dist
+dist.init_process_group(backend="nccl")
+local_rank = dist.get_rank() % torch.cuda.device_count()
+torch.cuda.set_device(local_rank)
+data = torch.FloatTensor([1,] * 128).to("cuda")
+dist.all_reduce(data, op=dist.ReduceOp.SUM)
+torch.cuda.synchronize()
+value = data.mean().item()
+world_size = dist.get_world_size()
+assert value == world_size, f"Expected {world_size}, got {value}"
 
-# -fopenmp: 开启 OpenMP 支持，利用所有 CPU 核心去访问内存，这才能测出最大带宽
-# -DSTREAM_ARRAY_SIZE: 设置一个足够大的数组，必须远大于你所有 CPU Cache 的总和，以确保测试的是内存而非缓存。例如设置为 8GB (2^33 bytes)
-gcc -O3 -fopenmp -DSTREAM_ARRAY_SIZE=8000000000 stream.c -o stream_test
+print("PyTorch NCCL is successful!")
 
-export OMP_NUM_THREADS=$(nproc)
-./stream_test
+# Test PyTorch GLOO
+gloo_group = dist.new_group(ranks=list(range(world_size)), backend="gloo")
+cpu_data = torch.FloatTensor([1,] * 128)
+dist.all_reduce(cpu_data, op=dist.ReduceOp.SUM, group=gloo_group)
+value = cpu_data.mean().item()
+assert value == world_size, f"Expected {world_size}, got {value}"
+
+print("PyTorch GLOO is successful!")
+
+if world_size <= 1:
+    exit()
+
+# Test vLLM NCCL, with cuda graph
+from vllm.distributed.device_communicators.pynccl import PyNcclCommunicator
+
+pynccl = PyNcclCommunicator(group=gloo_group, device=local_rank)
+# pynccl is enabled by default for 0.6.5+,
+# but for 0.6.4 and below, we need to enable it manually.
+# keep the code for backward compatibility when because people
+# prefer to read the latest documentation.
+pynccl.disabled = False
+
+s = torch.cuda.Stream()
+with torch.cuda.stream(s):
+    data.fill_(1)
+    out = pynccl.all_reduce(data, stream=s)
+    value = out.mean().item()
+    assert value == world_size, f"Expected {world_size}, got {value}"
+
+print("vLLM NCCL is successful!")
+
+g = torch.cuda.CUDAGraph()
+with torch.cuda.graph(cuda_graph=g, stream=s):
+    out = pynccl.all_reduce(data, stream=torch.cuda.current_stream())
+
+data.fill_(1)
+g.replay()
+torch.cuda.current_stream().synchronize()
+value = out.mean().item()
+assert value == world_size, f"Expected {world_size}, got {value}"
+
+print("vLLM NCCL with cuda graph is successful!")
+
+dist.destroy_process_group(gloo_group)
+dist.destroy_process_group()
 ```
 
-输出结果：
+单机多卡检查：
 
 ```
--------------------------------------------------------------
-Function    Best Rate MB/s  Avg time     Min time     Max time
-Copy:           125331.4     0.102223     0.101890     0.102802
-Scale:          125430.2     0.102196     0.101810     0.102555
-Add:            139682.4     0.114755     0.114545     0.114947
-Triad:          140348.1     0.114197     0.113999     0.114493
--------------------------------------------------------------
+NCCL_DEBUG=TRACE torchrun --nproc-per-node=4 test.py
 ```
 
-- Copy: a(i) = b(i)，测试一次读和一次写的带宽。
-- Scale: a(i) = q * b(i)，一次读，一次写。
-- Add: a(i) = b(i) + c(i)，两次读，一次写。
-- Triad: a(i) = b(i) + q * c(i)，两次读，一次写。这是最常被引用的指标，最能代表真实应用中的内存访问模式
-
-
-### llama.cpp 打印算子
+多机多卡检查：
 
 ```
-ggml_barrier(params->threadpool);
-
-if (ith == 0 && strncmp(dst->name, "kq-", 3) == 0) {
-    const struct ggml_tensor *t = src1;
-    FILE *fp = NULL;
-    char file_name[100];
-
-    sprintf(file_name, "data/attention_score_%s.log", dst->name);
-    fp = fopen(file_name, "a+");
-
-    fprintf(fp, "dst->name: %s\n", dst->name);
-    fprintf(fp, "num_kv: %lld, num_tokens: %lld, num_head: %lld\n", t->ne[0], t->ne[1], t->ne[2]);
-
-    for (int i2 = 0; i2 < t->ne[2]; ++i2) {
-        fprintf(fp, "i2: %d\n", i2);
-        for (int i1 = 0; i1 < t->ne[1]; ++i1) {
-            fprintf(fp, "i1: %d\n", i1);
-            for (int i0 = 0; i0 < t->ne[0]; ++i0) {
-                fprintf(fp, "i0: %d: %f\n",
-                    i0, *((float *)((char *)t->data + i2 * t->nb[2] + i1 * t->nb[1] + i0 * t->nb[0])));
-            }
-            fprintf(fp, "\n");
-        }
-        fprintf(fp, "\n\n");
-    }
-
-    fclose(fp);
-}
+# 注意 NODE_RANK 从0开始
+NCCL_DEBUG=TRACE torchrun --nnodes 2 --nproc-per-node=8 --node-rank $NODE_RANK --master_addr $MASTER_ADDR test.py
 ```
+
+
 
 ### Megatron-LM 测试
 
@@ -953,7 +968,7 @@ docker run -it --name megatron-lm   --gpus=all   --ipc=host --network=host --pri
 这里也可以：
 
 ```
-docker create --name megatron-lm ... <image:tag> sleep infinity
+docker create --name megatron-lm --init ... <image:tag> sleep infinity
 docker start megatron-lm
 docker exec -it megatron-lm bash
 ```
@@ -1117,6 +1132,14 @@ NIC0-4 就是 Infiniband，ibstat 命令可以看信息
 
 Rate: 400 就代表 400gbps，可以发现 mlx5_3 rate 只有 200，是存储IB，需要跳过
 
+如果没有 ibstat 命令，安装方法：
+
+```
+apt install infiniband-diags
+```
+
+ibv_devices 命令也可以看可用的 IB
+
 
 
 ### verl 多机多卡训练
@@ -1130,11 +1153,13 @@ export NCCL_SOCKET_IFNAME=bond0
 export GLOO_SOCKET_IFNAME=bond0
 export NCCL_IB_HCA=mlx5_0,mlx5_1,mlx5_2,mlx5_4
 # 主节点
-ray start --head --port=8888 --dashboard-host=0.0.0.0
+ray start --head --node-ip-address 10.18.18.106 --port=8888 --dashboard-host=0.0.0.0
 # 分节点
 ray start --address='10.18.18.106:8888'
 # 确认
 ray status
+# 停止某个job
+ray job stop xxx
 # 关闭
 ray stop
 ```
@@ -1143,8 +1168,11 @@ ray stop
 
 ```
 ...
-python3 -m verl.trainer.main_ppo \
-    --config_path=$CONFIG_PATH
+ray job submit --address="http://127.0.0.1:8265" \
+    --runtime-env="${RUNTIME_ENV}" \
+    --working-dir "${PROJECT_DIR}" \
+    -- python3 -m our.power_main_ppo \
+  	...
 ```
 
 
@@ -1206,7 +1234,98 @@ nvcc --version
 
 
 
+### llama.cpp 打印算子
+
+```
+ggml_barrier(params->threadpool);
+
+if (ith == 0 && strncmp(dst->name, "kq-", 3) == 0) {
+    const struct ggml_tensor *t = src1;
+    FILE *fp = NULL;
+    char file_name[100];
+
+    sprintf(file_name, "data/attention_score_%s.log", dst->name);
+    fp = fopen(file_name, "a+");
+
+    fprintf(fp, "dst->name: %s\n", dst->name);
+    fprintf(fp, "num_kv: %lld, num_tokens: %lld, num_head: %lld\n", t->ne[0], t->ne[1], t->ne[2]);
+
+    for (int i2 = 0; i2 < t->ne[2]; ++i2) {
+        fprintf(fp, "i2: %d\n", i2);
+        for (int i1 = 0; i1 < t->ne[1]; ++i1) {
+            fprintf(fp, "i1: %d\n", i1);
+            for (int i0 = 0; i0 < t->ne[0]; ++i0) {
+                fprintf(fp, "i0: %d: %f\n",
+                    i0, *((float *)((char *)t->data + i2 * t->nb[2] + i1 * t->nb[1] + i0 * t->nb[0])));
+            }
+            fprintf(fp, "\n");
+        }
+        fprintf(fp, "\n\n");
+    }
+
+    fclose(fp);
+}
+```
+
+
+
+### KVcache 估算
+
+单个 token 占用的 KVCache = hidden_size / (num_attention_heads / num_key_value_heads) * 2 * num_layers * 2
+
+其中最后一个2代表的是 sizeof(fp16) = 2
+
+
+
+### 瓶颈计算
+
+- **计算受限时间 (T_compute)** = 总计算量 /  峰值计算能力 (FLOPS)
+- **内存受限时间 (T_memory)** = 总内存访问量 /  内存带宽 (Bytes/s)
+
+**瓶颈判断规则**：如果 T_memory > T_compute，那么该操作就是 **内存受限** 的。
+
+对 CPU 来说：
+
+理论 GFLOPS = (CPU 核心数) * (CPU 频率 GHz) * (每个周期能执行的指令数)
+
+测内存带宽：
+
+```
+# 下载源码
+wget https://www.cs.virginia.edu/stream/FTP/Code/stream.c
+
+# -fopenmp: 开启 OpenMP 支持，利用所有 CPU 核心去访问内存，这才能测出最大带宽
+# -DSTREAM_ARRAY_SIZE: 设置一个足够大的数组，必须远大于你所有 CPU Cache 的总和，以确保测试的是内存而非缓存。例如设置为 8GB (2^33 bytes)
+gcc -O3 -fopenmp -DSTREAM_ARRAY_SIZE=8000000000 stream.c -o stream_test
+
+export OMP_NUM_THREADS=$(nproc)
+./stream_test
+```
+
+输出结果：
+
+```
+-------------------------------------------------------------
+Function    Best Rate MB/s  Avg time     Min time     Max time
+Copy:           125331.4     0.102223     0.101890     0.102802
+Scale:          125430.2     0.102196     0.101810     0.102555
+Add:            139682.4     0.114755     0.114545     0.114947
+Triad:          140348.1     0.114197     0.113999     0.114493
+-------------------------------------------------------------
+```
+
+- Copy: a(i) = b(i)，测试一次读和一次写的带宽。
+- Scale: a(i) = q * b(i)，一次读，一次写。
+- Add: a(i) = b(i) + c(i)，两次读，一次写。
+- Triad: a(i) = b(i) + q * c(i)，两次读，一次写。这是最常被引用的指标，最能代表真实应用中的内存访问模式
+
+
+
 ### wandb
+
+```
+wandb login
+```
 
 检查是否可用：
 
