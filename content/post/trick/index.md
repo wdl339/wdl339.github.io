@@ -157,7 +157,7 @@ lscpu
 
 参考：[Linux tmux 命令 | 菜鸟教程](https://www.runoob.com/linux/linux-comm-tmux.html)
 
-![image-20250830230330393](index.assets/image-20250830230330393.png)
+![](index.assets/image-20250830230330393.png)
 
 在 tmux 窗口中上下滑动、复制粘贴：
 
@@ -185,7 +185,7 @@ bash Miniconda3-latest-Linux-x86_64.sh
 
 ### 命令大全
 
-![image-20250702155235670](index.assets/image-20250702155235670.png)
+![](index.assets/image-20250702155235670.png)
 
 注意：conda create 的时候指定 python 版本，可以避免出现 error: externally-managed-environment
 
@@ -393,7 +393,7 @@ tcp   LISTEN 0      4096                    *:22               *:*    users:(("s
 rsync -avzP src dst
 ```
 
-![image-20250619182739859](index.assets/image-20250619182739859.png)
+![](index.assets/image-20250619182739859.png)
 
 **-z**：在传输过程中对数据进行压缩
 
@@ -573,7 +573,7 @@ git remote set-url origin ...
 
 还是不行，开启 V2RayN 代理，查看参数设置：
 
-![image-20250819205441617](index.assets/image-20250819205441617.png)
+![](index.assets/image-20250819205441617.png)
 
 以及“ v2rayN 设置” →“ Core 类型” 改为 Xray_core
 
@@ -1098,7 +1098,7 @@ torchrun ${DISTRIBUTED_ARGS[@]} pretrain_gpt.py \
 
 1. 注意比单机脚本多一行 --node_rank $NODE_RANK
 2. MASTER_ADDR 为主节点实际 IP，PORT 随意
-3. export NCCL_SOCKET_IFNAME=bond0，这里根据实际网卡名修改，也可能是 eth0，用 ifconfig 找到 inet 和主 IP 一致的那个网卡名就是
+3. export NCCL_SOCKET_IFNAME=bond0，这里根据实际网卡名修改，一般要配置为主网卡的以太网接口名，也就是用 ifconfig 找到 inet 和主 IP 一致的那个网卡名
 4. export GLOO_SOCKET_IFNAME=bond0，否则报错：RuntimeError: Gloo connectFullMesh failed …
 5. export NCCL_IB_HCA=mlx5_0,mlx5_1,mlx5_2,mlx5_4，指定使用的 IB，不使用 mlx5_3 原因见“集群网络”章节
 
@@ -1110,7 +1110,7 @@ torchrun ${DISTRIBUTED_ARGS[@]} pretrain_gpt.py \
 
 ### 集群网络
 
-查看网卡拓扑：
+#### 网卡拓扑
 
 ```
 nvidia-smi topo -m
@@ -1118,19 +1118,109 @@ nvidia-smi topo -m
 
 结果：
 
-![image-20250828133905899](index.assets/image-20250828133905899.png)
+![](index.assets/image-20250828133905899.png)
 
-![image-20250828133927135](index.assets/image-20250828133927135.png)
+解析（从快到慢）：
 
-![image-20250828134703232](index.assets/image-20250828134703232.png)
+**1. NV18: NVLink**
+
+- NVLink 是 NVIDIA 开发的专用于 GPU 之间直接互联的高速总线，完全绕过了CPU和PCIe总线
+- 图中8个 GPU 是通过NVLink进行全互联的，通常是通过 NVSwitch 实现的
+- 最快的通信路径，没有之一。单个A800 GPU 的总 NVLink 带宽高达400 GB/s，远超任何 PCIe 链路。在分布式训练中，梯度同步（All-Reduce）等操作会优先使用 NVLink，效率极高
+
+**2. PIX (Single PCIe Bridge)**
+
+- PIX 代表两个设备之间的通信路径非常短，最多只需要经过一个 PCIe 桥
+- 通常意味着两个设备物理上连接到了同一个CPU的同一个PCIe根复合体（Root Complex）上，是物理上的邻居
+- 这是最快的PCIe连接，延迟最低，带宽最高
+- 图中 GPU0 和 NIC0 之间是 PIX，GPU2 和 NIC1 之间是 PIX，GPU4 和 NIC2 之间是 PIX，GPU6 和 NIC4 之间是 PIX。将特定的 NIC 和特定的 GPU 配对，实现了最佳亲和性
+
+**3. NODE (Within a NUMA Node)**
+
+- NODE 代表通信需要跨越 PCIe，并且还需要经过 CPU 内部的互连总线，但整个过程都在同一个 NUMA 节点（同一个 CPU 物理插槽）内完成
+- 性能比 PIX 慢，因为多了一次 CPU 内部的跳转
+
+**4. SYS (Across NUMA Nodes)**
+
+- SYS 代表通信不仅要经过 PCIe 总线，还必须跨越CPU之间的互联总线（例如 Intel 的 UPI 或 AMD 的 Infinity Fabric）
+- 这是最长最慢的路径。数据需要从设备A -> PCIe -> CPU A -> UPI总线 -> CPU B -> PCIe -> 设备B
+- 例如图中 GPU0 和 NIC1 之间是 SYS，这是因为 GPU0 的最优亲和性在 NUMA 节点0上（见 CPU Affinity 0-27,112-139），而 NIC1 的最优亲和性在 NUMA 节点1上
 
 跨机通信就是：卡0->NIC->NIC->卡15
 
+#### NVLink
+
+查看带宽理论值：
+
+```
+nvidia-smi nvlink --status
+```
+
+输出：
+
+```
+GPU 7: NVIDIA H20 (UUID: ...)
+         Link 0: 26.562 GB/s
+         Link 1: 26.562 GB/s
+         ...
+         Link 17: 26.562 GB/s
+```
+
+这里说明一台 H20 GPU 拥有18条 NVLink 通道。每条通道的带宽大约是26.562 GB/s，总带宽就是18 × 26.562 = 478GB/s
+
+#### PCIe
+
+CPU 内存与 GPU 显存之间的数据传输速度，这种数据传输主要通过 PCIe 总线进行。查看带宽理论值：
+
+```
+nvidia-smi -q
+```
+
+找到以下部分：
+
+```
+...
+PCIe Link Info
+    PCIe Generation
+        Max                 : 5
+        Current             : 5  <-- 当前的PCIe代数
+    PCIe Link Width
+        Max                 : 16x
+        Current             : 16x <-- 当前的通道数
+...
+```
+
+- **PCIe 3.0 x16**: 理论带宽约 16 GB/s
+- **PCIe 4.0 x16**: 理论带宽约 32 GB/s
+- **PCIe 5.0 x16**: 理论带宽约 64 GB/s
+
+前面提到的 PIX 连接的实际带宽，就接近 PCIe 的带宽
+
+#### NIC
+
+用 ifconfig 看所有网卡，如果要查看网卡 bond0 的带宽：
+
+```
+sudo ethtool bond0
+```
+
+输出：
+
+```
+Settings for bond0:
+    ...
+    Speed: 10000Mb/s  <-- 表示速率是 10 Gbps
+    Duplex: Full
+    ...
+```
+
+#### Infiniband
+
 NIC0-4 就是 Infiniband，ibstat 命令可以看信息
 
-![image-20250828134148787](index.assets/image-20250828134148787.png)
+![](index.assets/image-20250828134148787.png)
 
-Rate: 400 就代表 400gbps，可以发现 mlx5_3 rate 只有 200，是存储IB，需要跳过
+Rate: 400 就代表带宽是400 Gbps，可以发现 mlx5_3 rate 只有200 Gbps，是存储 IB，需要跳过
 
 如果没有 ibstat 命令，安装方法：
 
@@ -1203,7 +1293,7 @@ flash_attn_2_cuda.cpython-310-x86_64-linux-gnu.so: undefined symbol...
 
 访问 https://developer.nvidia.com/cuda-downloads ，注意版本一致
 
-![image-20250903152704281](index.assets/image-20250903152704281.png)
+![](index.assets/image-20250903152704281.png)
 
 如果安装失败，查看 /var/log/nvidia-installer.log：
 
@@ -1215,7 +1305,7 @@ ERROR: Installation has failed.
 
 说明 nvidia 内核模块已经加载，如果这时候问 AI 解决办法，可能会让你关闭图形界面。但实际上系统中已经安装了 nvidia 驱动，在安装的时候选择不安装 Driver 即可：
 
-![image-20250903153937071](index.assets/image-20250903153937071.png)
+![](index.assets/image-20250903153937071.png)
 
 在 .bashrc 中：
 
@@ -1520,7 +1610,7 @@ sudo mount --bind /mnt/wdl/vscode-server /home/wdl/.vscode-server
 
 还卡就没别的办法了，只能设置里 disable
 
-![image-20250620181402961](index.assets/image-20250620181402961.png)
+![](index.assets/image-20250620181402961.png)
 
 
 
