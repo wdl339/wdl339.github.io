@@ -1661,6 +1661,24 @@ unordered_map<array<int, 26>, vector<string>, decltype(arrayHash)> mp(0, arrayHa
 
 
 
+#### Set
+
+同样有 unordered_set 和 set
+
+| 类别      | 接口                                                      | 说明                                        |
+| --------- | --------------------------------------------------------- | ------------------------------------------- |
+| 构造/析构 | `set<int> s{1,2,3};`                                      |                                             |
+| 容量      | `empty()` `size()` `max_size()`                           |                                             |
+| 清空      | `clear()`                                                 |                                             |
+| 查找      | `count(key)`                                              | 返回 0/1（ multiset 可 >1）                 |
+|           | `find(key)`                                               | 返回迭代器，失败返回 `end()`                |
+| 插入      | `insert(val)` / `insert(pos, val)` / `insert(first,last)` | 返回 `pair<iterator,bool>`（或 `iterator`） |
+| 删除      | `erase(val)` / `erase(pos)` / `erase(first,last)`         | 返回删除个数或下个迭代器                    |
+| 比较      | `==` `!=`                                                 | 元素逐个比；unordered 版本顺序无关          |
+| 交换      | `swap()` / 非成员 `swap(a,b)`                             | 常数时间                                    |
+
+
+
 #### Vector
 
 - 访问（带边界检查）：m.at(pos)
@@ -1699,6 +1717,16 @@ struct Status {
 };
 
 priority_queue <Status> q;
+```
+
+自定义堆：
+
+```
+static bool cmp(pair<int, int>& m, pair<int, int>& n) {
+	return m.second > n.second;
+}
+
+priority_queue<pair<int, int>, vector<pair<int, int>>, decltype(&cmp)> q(cmp);
 ```
 
 deque 双端队列，可以用 pop_back(), pop_front()

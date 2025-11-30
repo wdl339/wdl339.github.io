@@ -474,13 +474,15 @@ def llama_mha(self, inputs, position_ids, attention_mask, w_ln, w_q, w_k, w_v,
 
 这里还值得注意的是 RMSNorm：RMSNorm 是一种用于神经网络的归一化方法，全称是 Root Mean Square Normalization，它的核心思想是对输入特征进行归一化，使得它们具有统一的均方根。
 
-假设输入向量为$ x = (x_1, x_2, \dots, x_h)$，RMSNorm的计算步骤如下：
+假设输入向量为$ x = (x_1, x_2, \dots, x_h)$，RMSNorm 的计算步骤如下：
 
 1. **计算均方根（RMS）值**：$\text{RMS}(x) = \sqrt{\frac{1}{h} \sum_{i=1}^{h} x_i^2}$
 
 2. **归一化**：$\hat{x}_i = \frac{x_i}{\text{RMS}(x) + \epsilon}$
 
-3. **缩放**：$y_i = \gamma \cdot \hat{x}_i$ ，其中 $\gamma$ 也就是 w_ln 矩阵。
+3. **缩放**：$y_i = \gamma \cdot \hat{x}_i$ ，其中 $\gamma$ 也就是 w_ln 矩阵
+
+这里输入向量的维度是 [b,s,h]，可以理解为对 b*s 个独立的输入向量做 RMSNorm，每个向量的长度是 h。
 
 RMSNorm 与 Batch Normalization 和 Layer Normalization 的区别：
 
@@ -516,13 +518,25 @@ def llama_mha(self, inputs, position_ids, attention_mask, w_ln, w_q, w_k, w_v,
         q, k = llama3_apply_rotary_pos_emb(q, k, cos, sin)
 ```
 
-这部分数学对我来说还是太难了，我当时支持它的时候就是直接搬 transformers 库的实现...... 总之我们学系统的，知道这样操作之后维度还是不变应该也足够了。
+RoPE 的流程：
+
+1. 两两分组，令 d = head_dim，RoPE 把 d 个数字看作 d/2 个向量对，原版论文是相邻 token 作为一对，实际实现是跨 d/2 的两个元素为一对
+2. 每一个“对”都有一个固定的基准频率 $\theta_i$，同时每个 token 都有一个位置索引 m（来自维度 s）。一对向量 $(x_{2i},x_{2i+1})$，需要旋转的角度是：$\alpha = m * \theta_i$，其中 $\theta_i=10000^{−2i/d}$
+3. 对每一对数值进行二维平面旋转
+
+$$
+\begin{pmatrix} x' \\ y' \end{pmatrix} = \begin{pmatrix} \cos\alpha & -\sin\alpha \\ \sin\alpha & \cos\alpha \end{pmatrix} \begin{pmatrix} x \\ y \end{pmatrix}
+$$
+
+通过绝对位置的旋转，使得两个 token 做点积时，结果只包含它们的相对距离信息（$m-n$），从而实现了相对位置编码
+
+![](index.assets/image-20251130231904579.png)
 
 几个重要函数：
 
--  `rope_init_fn`：初始化频率参数，生成倒数频率并根据配置调整。
-- `llama3_rotary_embedding`：生成旋转嵌入，根据频率和位置 ID 计算正弦和余弦嵌入。
-- `llama3_apply_rotary_pos_emb`：应用旋转嵌入，将正弦和余弦嵌入应用到 Q 和 K 上。
+-  `rope_init_fn`：初始化频率参数，生成倒数频率并根据配置调整
+- `llama3_rotary_embedding`：生成旋转嵌入，根据频率和位置 ID 计算正弦和余弦嵌入
+- `llama3_apply_rotary_pos_emb`：应用旋转嵌入，将正弦和余弦嵌入应用到 Q 和 K 上
 
 > Kimi 告诉我，LLaMA 3 使用旋转位置编码（RoPE）的原因主要有以下几点：
 >
@@ -594,6 +608,8 @@ attn_weights = torch.where(mask, attn_weights, -1e4)
 
 随后，使用 `torch.where` 将掩码之外的值设置为一个非常小的值，以确保这些位置在softmax后接近于0。
 
+后续的计算：
+
 ```Python
 attn_weights = attn_weights.view(b * n_head, s, s)
 attn_weights = F.softmax(attn_weights, dim=2)
@@ -611,9 +627,15 @@ v = v.permute(1, 0, 2)
 return TorchTensor.create_from_torch(value, self), k, v
 ```
 
-这里就是后续的计算了，最后为什么要再把 K 和 V 变形为 [s, b * n_head, head_dim] ？因为这里 return 回去是作为 KCache 和 VCache 保存起来，到了 decode 阶段维度是 [1, b * n_head, head_dim] ，就方便  KVCache 的拼接。
+前面我们提到 $\text{softmax}(x_i) = e^{x_i}/ \sum_{j} e^{x_j} $，$x_i$ 是输入向量的第 i 个元素。softmax 操作是对维度为 [b * n_head,  s, s] 的矩阵做的，把第0维固定只看 [s, s]，每一行代表一个 query，该行中的每一个数值代表这个 Query 对不同 Key 的原始相关性分数。softmax 操作首先对行内的每个元素做 e 的指数运算，然后对该行所有指数值求和，最后用每个元素的指数值除以总和。
+
+为了防止 e 指数运算溢出太多，一般在做指数运算前，还会先减去该行的最大值 M，变成 $\text{softmax}(x_i) = e^{x_i - M}/ \sum_{j} e^{x_j - M} $
+
+最后为什么要再把 K 和 V 变形为 [s, b * n_head, head_dim] ？因为这里 return 回去是作为 KCache 和 VCache 保存起来，到了 decode 阶段维度是 [1, b * n_head, head_dim] ，就方便  KVCache 的拼接。
 
 ![attention 计算图示](index.assets/image-20250410214145547.png)
+
+
 
 
 
